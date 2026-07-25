@@ -18,10 +18,10 @@ st.markdown(
         font-family: 'Inter', sans-serif;
     }
 
-    /* Clear Background Image with minimal shadow for readability */
+    /* Clear Background Image with dark overlay for readability */
     .stApp {
-        background-image: linear-gradient(rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.35)), 
-                          url("https://images.unsplash.com/photo-1479142506502-19b3a3b7ff33?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D");
+        background-image: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.55)), 
+                          url("https://www.magnific.com/free-ai-image/close-up-law-scale_390556911.htm#fromView=keyword&page=1&position=36&uuid=7f8c90e6-753d-4e2b-8453-ccb116c64442&query=Lawyer+wallpaper");
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
