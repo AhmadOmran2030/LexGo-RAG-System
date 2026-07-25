@@ -5,9 +5,9 @@ import streamlit as st
 rag = import_module("07_prompting")
 
 try:
-    if not rag.OPENROUTER_API_KEY:
-        rag.OPENROUTER_API_KEY = st.secrets.get("OPENROUTER_API_KEY", "")
-    rag.OPENROUTER_MODEL = st.secrets.get("OPENROUTER_MODEL", rag.OPENROUTER_MODEL)
+    if not rag.OPENAI_API_KEY:
+        rag.OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY", "")
+    rag.OPENAI_MODEL = st.secrets.get("OPENAI_MODEL", rag.OPENAI_MODEL)
 except Exception:
     pass
     
