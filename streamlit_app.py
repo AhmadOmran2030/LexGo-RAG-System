@@ -1,124 +1,167 @@
+import base64
 from importlib import import_module
 import streamlit as st
 
-# Config Page
+# 1. Page Configuration
 st.set_page_config(
-    page_title="LexGO | AI-Powered Legal Intelligence", 
+    page_title="LexGO | AI Legal Intelligence", 
     page_icon="⚖️", 
     layout="centered"
 )
 
-# --- Custom CSS for Unsplash Image Background & Styling ---
+# 2. Custom CSS & Styling (Enterprise Glassmorphism Theme)
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
     html, body, [class*="css"] {
-        font-family: 'Inter', sans-serif;
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
     }
 
-    /* Background setup using Unsplash Direct Image URL */
+    /* Background setup with modern Unsplash library visual */
     .stApp {
-        background-image: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.55)), 
-                          url("https://images.unsplash.com/photo-1479142506502-19b3a3b7ff33?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D");
+        background-image: linear-gradient(180deg, rgba(10, 15, 29, 0.80) 0%, rgba(10, 15, 29, 0.90) 100%), 
+                          url("https://images.unsplash.com/photo-1479142506502-19b3a3b7ff33?q=80&w=1170&auto=format&fit=crop");
         background-size: cover;
         background-position: center;
-        background-repeat: no-repeat;
         background-attachment: fixed;
     }
 
     /* Main Container Padding */
     .main .block-container {
         padding-top: 2.5rem;
-        padding-bottom: 3rem;
-        max-width: 800px;
+        padding-bottom: 4rem;
+        max-width: 820px;
     }
 
-    /* Title Styling */
+    /* Central Glass Container Styling */
+    div[data-testid="stVerticalBlock"] > div:has(div.lexgo-header) {
+        background: rgba(15, 23, 42, 0.70);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 20px;
+        padding: 2.5rem 2rem;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Brand Header Styling */
     .lexgo-title {
-        font-size: 3.2rem;
+        font-size: 2.8rem;
         font-weight: 800;
-        letter-spacing: -1px;
+        letter-spacing: -0.03em;
         color: #ffffff;
-        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
-        margin-bottom: 0.2rem;
+        margin: 0;
+        background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
     }
 
-    /* Slogan Styling */
     .lexgo-slogan {
-        font-size: 1.1rem;
-        font-weight: 600;
+        font-size: 0.85rem;
+        font-weight: 700;
         color: #38bdf8;
-        margin-bottom: 0.5rem;
         text-transform: uppercase;
-        letter-spacing: 1.5px;
-        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+        letter-spacing: 2px;
+        margin-top: 0.2rem;
+        margin-bottom: 0.8rem;
     }
 
     .lexgo-caption {
-        font-size: 0.95rem;
-        color: #e2e8f0;
-        margin-bottom: 2rem;
-        line-height: 1.5;
-        text-shadow: 0 1px 5px rgba(0, 0, 0, 0.8);
+        font-size: 0.92rem;
+        color: #94a3b8;
+        line-height: 1.6;
+        margin-bottom: 1.8rem;
     }
 
-    /* Dark Glassmorphic Cards for Inputs */
+    /* Suggested Query Buttons */
+    div[data-testid="stHorizontalBlock"] button {
+        background: rgba(30, 41, 59, 0.8) !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        color: #e2e8f0 !important;
+        font-size: 0.82rem !important;
+        font-weight: 500 !important;
+        border-radius: 20px !important;
+        padding: 0.4rem 0.8rem !important;
+        transition: all 0.2s ease !important;
+    }
+
+    div[data-testid="stHorizontalBlock"] button:hover {
+        border-color: #38bdf8 !important;
+        color: #38bdf8 !important;
+        background: rgba(56, 189, 248, 0.1) !important;
+    }
+
+    /* Text Area Styling */
+    .stTextArea label {
+        font-size: 0.95rem !important;
+        font-weight: 600 !important;
+        color: #f1f5f9 !important;
+        margin-bottom: 0.5rem !important;
+    }
+
     .stTextArea textarea {
-        background: rgba(15, 23, 42, 0.80) !important;
-        backdrop-filter: blur(8px) !important;
-        -webkit-backdrop-filter: blur(8px) !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-        color: #ffffff !important;
+        background: rgba(30, 41, 59, 0.7) !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        color: #f8fafc !important;
         border-radius: 12px !important;
-        font-size: 1rem !important;
+        font-size: 0.98rem !important;
         padding: 1rem !important;
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4) !important;
+        transition: all 0.2s ease-in-out !important;
     }
 
     .stTextArea textarea:focus {
         border-color: #38bdf8 !important;
-        box-shadow: 0 0 15px rgba(56, 189, 248, 0.4) !important;
+        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2) !important;
     }
 
-    /* Custom Button Styling */
+    /* Main Action Button Styling */
     div.stButton > button {
         width: 100%;
-        background: #0284c7 !important;
+        background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
         color: #ffffff !important;
         font-weight: 600 !important;
         font-size: 1rem !important;
-        border: none !important;
-        border-radius: 10px !important;
-        padding: 0.75rem 1.5rem !important;
-        transition: all 0.3s ease !important;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 12px !important;
+        padding: 0.8rem 1.5rem !important;
+        transition: all 0.25s ease !important;
+        box-shadow: 0 4px 15px rgba(2, 132, 199, 0.3) !important;
+        margin-top: 0.5rem;
     }
 
     div.stButton > button:hover {
-        background: #0369a1 !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6) !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 6px 20px rgba(2, 132, 199, 0.45) !important;
+        background: linear-gradient(135deg, #0369a1 0%, #075985 100%) !important;
     }
 
-    /* Expander / Sources Styling */
+    /* Source Citation Expander */
     .stExpander {
-        background: rgba(15, 23, 42, 0.80) !important;
-        backdrop-filter: blur(8px) !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        background: rgba(30, 41, 59, 0.5) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
         border-radius: 12px !important;
-        color: #ffffff !important;
+        color: #f8fafc !important;
+        margin-top: 1.5rem !important;
     }
 
-    /* Hide Streamlit Default UI Elements */
+    /* Toggle Switch Styling */
+    .stCheckbox label {
+        color: #cbd5e1 !important;
+        font-size: 0.88rem !important;
+    }
+
+    /* Hide Default Streamlit Elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
+    header {visibility: hidden;}
     </style>
     """,
     unsafe_allow_html=True
 )
 
+# 3. Import RAG Backend
 rag = import_module("07_prompting")
 
 try:
@@ -128,28 +171,57 @@ try:
 except Exception:
     pass
 
-# Header Section
-st.markdown('<div class="lexgo-title">LexGO ⚖️</div>', unsafe_allow_html=True)
+# 4. Header Section
+st.markdown('<div class="lexgo-header"></div>', unsafe_allow_html=True)
+st.markdown('<h1 class="lexgo-title">LexGO ⚖️</h1>', unsafe_allow_html=True)
 st.markdown('<div class="lexgo-slogan">Navigate Law with Precision</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="lexgo-caption">AI-driven legal intelligence for corporate governance, M&A policies, and intellectual property. Answers are based strictly on internal documentation and do not constitute formal legal advice.</div>', 
+    '<div class="lexgo-caption">AI-driven legal intelligence for corporate governance, M&A policies, real estate, and intellectual property. Answers are synthesized strictly from internal repository documentation.</div>', 
     unsafe_allow_html=True
 )
 
-# Input Section
-question = st.text_area("Question", placeholder="Type your corporate governance or policy question here...", height=120)
+# 5. Feature: Quick Sample Query Pills
+st.markdown("<p style='font-size:0.85rem; color:#94a3b8; margin-bottom:0.4rem; font-weight:600;'>SUGGESTED QUERIES</p>", unsafe_allow_html=True)
+col1, col2, col3 = st.columns(3)
 
-# Execution Section
-if st.button("Generate Answer") and question.strip():
-    answer, sources = rag.answer_question(question)
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.text_area("Answer", value=answer, height=220)
+if col1.button("📌 M&A Approval Rules"):
+    st.session_state["user_query"] = "What are the required board and shareholder approvals for a merger?"
 
-    if sources:
-        with st.expander("📌 Retrieved Sources & Citations"):
-            for idx, source in enumerate(sources, 1):
-                st.markdown(f"**Source {idx}: {source['title']}**")
-                st.caption(source["chunk_text"])
-                if idx < len(sources):
-                    st.divider()
+if col2.button("🔒 Trade Secret Policy"):
+    st.session_state["user_query"] = "How does the company protect proprietary source code and trade secrets?"
+
+if col3.button("🏢 Commercial Leases"):
+    st.session_state["user_query"] = "What is the approval process for commercial real estate leases exceeding 12 months?"
+
+# 6. Input Section
+question = st.text_area(
+    "Legal Query / Policy Search", 
+    value=st.session_state.get("user_query", ""),
+    placeholder="Ask a question about corporate policies, director independence, or IP guidelines...", 
+    height=110
+)
+
+# 7. Optional Controls (Filter Archived Policies)
+include_archived = st.checkbox("Include archived/legacy policy notices in search", value=False)
+
+# 8. Action & Result Execution
+if st.button("Analyze & Generate Answer") and question.strip():
+    with st.spinner("Analyzing legal repository and verifying policy compliance..."):
+        answer, sources = rag.answer_question(question)
+        
+        # Filter archived if toggle is disabled
+        if not include_archived and sources:
+            sources = [s for s in sources if s.get("is_current", True)]
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.subheader("Legal Analysis")
+        st.markdown(f"<div style='background: rgba(30, 41, 59, 0.6); padding: 1.2rem; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; line-height: 1.7;'>{answer}</div>", unsafe_allow_html=True)
+
+        if sources:
+            with st.expander("📌 Retrieved Internal References & Citations"):
+                for idx, source in enumerate(sources, 1):
+                    status_badge = "🟢 Current Policy" if source.get("is_current", True) else "🔴 Archived Notice"
+                    st.markdown(f"**[{idx}] {source['title']}** &nbsp; <small style='color:#94a3b8;'>({status_badge})</small>", unsafe_allow_html=True)
+                    st.caption(source["chunk_text"])
+                    if idx < len(sources):
+                        st.divider()
