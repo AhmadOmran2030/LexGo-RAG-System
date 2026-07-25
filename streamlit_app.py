@@ -8,9 +8,9 @@ st.set_page_config(page_title="Legal RAG Assistant", page_icon="⚖️", layout=
 st.markdown(
     """
     <style>
-    /* Background setup using your Unsplash image with a dark gradient overlay */
+    /* Background setup with low overlay opacity to show the image clearly */
     .stApp {
-        background: linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.90)), 
+        background: linear-gradient(rgba(15, 23, 42, 0.45), rgba(15, 23, 42, 0.60)), 
                     url("https://images.unsplash.com/photo-1479142506502-19b3a3b7ff33?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D");
         background-size: cover;
         background-position: center;
@@ -20,16 +20,16 @@ st.markdown(
 
     /* Style Text Areas */
     .stTextArea textarea {
-        background-color: rgba(30, 41, 59, 0.8) !important;
-        border: 1px solid rgba(255, 255, 255, 0.15) !important;
-        color: #f1f5f9 !important;
+        background-color: rgba(15, 23, 42, 0.75) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        color: #ffffff !important;
         border-radius: 8px;
     }
 
     /* Style Expanders (Sources Section) */
     .stExpander {
-        background-color: rgba(30, 41, 59, 0.7) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        background-color: rgba(15, 23, 42, 0.7) !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
         border-radius: 8px;
     }
     </style>
