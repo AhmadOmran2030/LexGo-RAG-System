@@ -1,3 +1,4 @@
+import base64
 from importlib import import_module
 import streamlit as st
 
@@ -8,7 +9,32 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- Custom CSS for Pinterest Image Background & Styling ---
+# Function to encode local image to Base64
+def get_base64_of_bin_file(bin_file):
+    with open(bin_file, 'rb') as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
+
+# Convert local image 'bg.jpg'
+try:
+    bin_str = get_base64_of_bin_file('bg.jpg')
+    bg_style = f'''
+    <style>
+    .stApp {{
+        background-image: linear-gradient(rgba(0, 0, 0, 0.30), rgba(0, 0, 0, 0.40)), 
+                          url("data:image/jpeg;base64,{bin_str}");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+    }}
+    </style>
+    '''
+    st.markdown(bg_style, unsafe_allow_html=True)
+except FileNotFoundError:
+    st.warning("⚠️ لم يتم العثور على ملف الصورة bg.jpg في مجلد المشروع.")
+
+# --- Custom CSS for Styling ---
 st.markdown(
     """
     <style>
@@ -16,16 +42,6 @@ st.markdown(
 
     html, body, [class*="css"] {
         font-family: 'Inter', sans-serif;
-    }
-
-    /* Background setup using your Pinterest Direct Image URL */
-    .stApp {
-        background-image: linear-gradient(rgba(0, 0, 0, 0.30), rgba(0, 0, 0, 0.40)), 
-                          url("https://i.pinimg.com/736x/21/f0/73/21f0739c9f28ec96fa2f16839f9eb8f9.jpg");
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-        background-attachment: fixed;
     }
 
     /* Main Container Padding */
