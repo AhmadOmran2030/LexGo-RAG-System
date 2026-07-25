@@ -8,21 +8,20 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- Custom CSS for Professional Modern UI ---
+# --- Custom CSS for Clear Image & Professional UI ---
 st.markdown(
     """
     <style>
-    /* Google Font Import */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
 
     html, body, [class*="css"] {
         font-family: 'Inter', sans-serif;
     }
 
-    /* Background setup with sophisticated Dark Blue / Charcoal gradient overlay */
+    /* Clear Background Image with minimal shadow for readability */
     .stApp {
-        background: linear-gradient(135deg, rgba(10, 15, 30, 0.85) 0%, rgba(15, 23, 42, 0.92) 100%), 
-                    url("https://images.unsplash.com/photo-1479142506502-19b3a3b7ff33?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D");
+        background-image: linear-gradient(rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.35)), 
+                          url("https://images.unsplash.com/photo-1479142506502-19b3a3b7ff33?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D");
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
@@ -36,57 +35,57 @@ st.markdown(
         max-width: 800px;
     }
 
-    /* Title Styling */
+    /* Title Styling with text-shadow to pop over full image */
     .lexgo-title {
-        font-size: 3rem;
+        font-size: 3.2rem;
         font-weight: 800;
         letter-spacing: -1px;
-        background: linear-gradient(90deg, #ffffff 0%, #cbd5e1 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        color: #ffffff;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
         margin-bottom: 0.2rem;
     }
 
-    /* Slogan & Subtitle Styling */
+    /* Slogan Styling */
     .lexgo-slogan {
         font-size: 1.1rem;
-        font-weight: 500;
+        font-weight: 600;
         color: #38bdf8;
         margin-bottom: 0.5rem;
         text-transform: uppercase;
         letter-spacing: 1.5px;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
     }
 
     .lexgo-caption {
-        font-size: 0.92rem;
-        color: #94a3b8;
+        font-size: 0.95rem;
+        color: #e2e8f0;
         margin-bottom: 2rem;
         line-height: 1.5;
+        text-shadow: 0 1px 5px rgba(0, 0, 0, 0.8);
     }
 
-    /* Input & Text Area Cards (Glassmorphism Effect) */
+    /* Dark Transparent Cards for Inputs */
     .stTextArea textarea {
-        background: rgba(15, 23, 42, 0.65) !important;
-        backdrop-filter: blur(12px) !important;
-        -webkit-backdrop-filter: blur(12px) !important;
-        border: 1px solid rgba(255, 255, 255, 0.12) !important;
-        color: #f8fafc !important;
+        background: rgba(15, 23, 42, 0.75) !important;
+        backdrop-filter: blur(8px) !important;
+        -webkit-backdrop-filter: blur(8px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        color: #ffffff !important;
         border-radius: 12px !important;
-        font-size: 0.98rem !important;
+        font-size: 1rem !important;
         padding: 1rem !important;
-        transition: all 0.3s ease !important;
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2) !important;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
     }
 
     .stTextArea textarea:focus {
-        border-color: #0284c7 !important;
-        box-shadow: 0 0 15px rgba(2, 132, 199, 0.3) !important;
+        border-color: #38bdf8 !important;
+        box-shadow: 0 0 15px rgba(56, 189, 248, 0.4) !important;
     }
 
     /* Custom Button Styling */
     div.stButton > button {
         width: 100%;
-        background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+        background: #0284c7 !important;
         color: #ffffff !important;
         font-weight: 600 !important;
         font-size: 1rem !important;
@@ -94,26 +93,25 @@ st.markdown(
         border-radius: 10px !important;
         padding: 0.75rem 1.5rem !important;
         transition: all 0.3s ease !important;
-        box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35) !important;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4) !important;
     }
 
     div.stButton > button:hover {
-        background: linear-gradient(135deg, #0369a1 0%, #075985 100%) !important;
+        background: #0369a1 !important;
         transform: translateY(-2px) !important;
-        box-shadow: 0 6px 20px rgba(2, 132, 199, 0.5) !important;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6) !important;
     }
 
     /* Expander / Sources Styling */
     .stExpander {
-        background: rgba(15, 23, 42, 0.6) !important;
-        backdrop-filter: blur(10px) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        background: rgba(15, 23, 42, 0.75) !important;
+        backdrop-filter: blur(8px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
         border-radius: 12px !important;
-        overflow: hidden;
-        margin-top: 1rem;
+        color: #ffffff !important;
     }
 
-    /* Hide Streamlit Header & Footer for Clean Look */
+    /* Hide Streamlit Default UI Elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     </style>
