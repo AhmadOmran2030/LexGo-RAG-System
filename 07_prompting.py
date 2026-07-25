@@ -33,11 +33,16 @@ def ask_openrouter(prompt):
         base_url="https://openrouter.ai/api/v1",
         api_key=OPENROUTER_API_KEY,
     )
-    response = client.chat.completions.create(
-        model=OPENROUTER_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0,
-    )
+    try:
+        response = client.chat.completions.create(
+            model=OPENROUTER_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+        )
+    except Exception as error:
+        status_code = getattr(error, "status_code", "unknown")
+        message = getattr(error, "message", str(error))
+        return f"OpenRouter error ({status_code}): {message}"
     return response.choices[0].message.content
 
 
