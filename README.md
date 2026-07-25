@@ -33,7 +33,7 @@ and flag outdated ones.
 ```powershell
 python -m pip install -r requirements.txt
 Copy-Item .env.example .env
-# edit .env and add your real OPENAI_API_KEY
+# edit .env and add your real OPENROUTER_API_KEY
 python 05_create_chroma_store.py
 streamlit run streamlit_app.py
 ```
@@ -61,8 +61,8 @@ On macOS/Linux, replace `Copy-Item .env.example .env` with `cp .env.example .env
    - Open the **Secrets** tab.
    - Add the following, in valid TOML format:
      ```toml
-     OPENAI_API_KEY = "your_openai_key_here"
-     OPENAI_MODEL = "gpt-4o-mini"
+     OPENROUTER_API_KEY = "your_openrouter_key_here"
+     OPENROUTER_MODEL = "openai/gpt-4o-mini"
      ```
    - Save. Streamlit will restart the app with the secrets available via
      `st.secrets`.
