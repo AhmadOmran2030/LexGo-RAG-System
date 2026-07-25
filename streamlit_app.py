@@ -21,7 +21,7 @@ st.markdown(
     /* Clear Background Image with dark overlay for readability */
     .stApp {
         background-image: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.55)), 
-                          url("https://www.magnific.com/free-ai-image/close-up-law-scale_390556911.htm#fromView=keyword&page=1&position=36&uuid=7f8c90e6-753d-4e2b-8453-ccb116c64442&query=Lawyer+wallpaper");
+                          url("https://www.magnific.com/free-ai-image/photorealistic-lawyer-environment_133374628.htm#fromView=keyword&page=1&position=11&uuid=7f8c90e6-753d-4e2b-8453-ccb116c64442&query=Lawyer+wallpaper");
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
