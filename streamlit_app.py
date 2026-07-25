@@ -8,7 +8,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- Custom CSS for Pinterest Image Background & Styling ---
+# --- Custom CSS for Unsplash Image Background & Styling ---
 st.markdown(
     """
     <style>
@@ -18,10 +18,10 @@ st.markdown(
         font-family: 'Inter', sans-serif;
     }
 
-    /* Background setup using Direct URL extracted from your Pinterest link */
+    /* Background setup using Unsplash Direct Image URL */
     .stApp {
-        background-image: linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.45)), 
-                          url("https://i.pinimg.com/736x/21/f0/73/21f0739c9f28ec96fa2f16839f9eb8f9.jpg");
+        background-image: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.55)), 
+                          url("https://images.unsplash.com/photo-1479142506502-19b3a3b7ff33?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D");
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
@@ -66,7 +66,7 @@ st.markdown(
 
     /* Dark Glassmorphic Cards for Inputs */
     .stTextArea textarea {
-        background: rgba(15, 23, 42, 0.75) !important;
+        background: rgba(15, 23, 42, 0.80) !important;
         backdrop-filter: blur(8px) !important;
         -webkit-backdrop-filter: blur(8px) !important;
         border: 1px solid rgba(255, 255, 255, 0.2) !important;
@@ -74,7 +74,7 @@ st.markdown(
         border-radius: 12px !important;
         font-size: 1rem !important;
         padding: 1rem !important;
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4) !important;
     }
 
     .stTextArea textarea:focus {
@@ -104,7 +104,7 @@ st.markdown(
 
     /* Expander / Sources Styling */
     .stExpander {
-        background: rgba(15, 23, 42, 0.75) !important;
+        background: rgba(15, 23, 42, 0.80) !important;
         backdrop-filter: blur(8px) !important;
         border: 1px solid rgba(255, 255, 255, 0.2) !important;
         border-radius: 12px !important;
