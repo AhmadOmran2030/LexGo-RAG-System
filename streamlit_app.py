@@ -8,7 +8,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- Custom CSS for Clear Image & Professional UI ---
+# --- Custom CSS for Pinterest Image Background & Styling ---
 st.markdown(
     """
     <style>
@@ -18,10 +18,10 @@ st.markdown(
         font-family: 'Inter', sans-serif;
     }
 
-    /* Clear Background Image with dark overlay for readability */
+    /* Background setup using your Pinterest Direct Image URL */
     .stApp {
-        background-image: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.55)), 
-                          url("https://www.magnific.com/free-ai-image/photorealistic-lawyer-environment_133374628.htm#fromView=keyword&page=1&position=11&uuid=7f8c90e6-753d-4e2b-8453-ccb116c64442&query=Lawyer+wallpaper");
+        background-image: linear-gradient(rgba(0, 0, 0, 0.30), rgba(0, 0, 0, 0.40)), 
+                          url("https://i.pinimg.com/736x/21/f0/73/21f0739c9f28ec96fa2f16839f9eb8f9.jpg");
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
@@ -35,7 +35,7 @@ st.markdown(
         max-width: 800px;
     }
 
-    /* Title Styling with text-shadow to pop over full image */
+    /* Title Styling */
     .lexgo-title {
         font-size: 3.2rem;
         font-weight: 800;
@@ -64,7 +64,7 @@ st.markdown(
         text-shadow: 0 1px 5px rgba(0, 0, 0, 0.8);
     }
 
-    /* Dark Transparent Cards for Inputs */
+    /* Dark Glassmorphic Cards for Inputs */
     .stTextArea textarea {
         background: rgba(15, 23, 42, 0.75) !important;
         backdrop-filter: blur(8px) !important;
