@@ -2,14 +2,15 @@ import base64
 from importlib import import_module
 import streamlit as st
 
-# 1. Page Configuration
+# 1. Page Configuration (Force Sidebar Expanded by Default)
 st.set_page_config(
     page_title="LexGO | AI Legal Intelligence", 
     page_icon="⚖️", 
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# 2. Custom CSS & Styling (Sidebar Glassmorphism + Main Interface)
+# 2. Custom CSS (Fixes Sidebar & Removes Blue Boxes)
 st.markdown(
     """
     <style>
@@ -19,30 +20,37 @@ st.markdown(
         font-family: 'Plus Jakarta Sans', sans-serif !important;
     }
 
-    /* Force background on main App container */
+    /* Force background image on the main app background */
     .stApp {
-        background: linear-gradient(180deg, rgba(10, 15, 29, 0.75) 0%, rgba(10, 15, 29, 0.88) 100%), 
+        background: linear-gradient(180deg, rgba(10, 15, 29, 0.70) 0%, rgba(10, 15, 29, 0.85) 100%), 
                     url("https://images.unsplash.com/photo-1479142506502-19b3a3b7ff33?q=80&w=1170&auto=format&fit=crop") !important;
         background-size: cover !important;
         background-position: center !important;
         background-attachment: fixed !important;
     }
 
-    /* Transparent Main Container & Header */
+    /* Keep main container transparent so image shows through */
     .stAppHeader, .main, .main .block-container {
         background: transparent !important;
     }
 
+    /* Ensure Sidebar Collapse/Expand Toggle Arrow is ALWAYS Visible */
+    [data-testid="stSidebarNavSeparator"], button[data-testid="baseButton-header"] {
+        display: block !important;
+        visibility: visible !important;
+        color: #ffffff !important;
+    }
+
     /* Main Container Padding */
     .main .block-container {
-        padding-top: 3rem;
+        padding-top: 2rem;
         padding-bottom: 4rem;
         max-width: 900px;
     }
 
-    /* Sidebar Custom Styling */
+    /* Sidebar Custom Styling (Dark Translucent Glass) */
     section[data-testid="stSidebar"] {
-        background: rgba(15, 23, 42, 0.75) !important;
+        background: rgba(15, 23, 42, 0.85) !important;
         backdrop-filter: blur(16px) !important;
         -webkit-backdrop-filter: blur(16px) !important;
         border-right: 1px solid rgba(255, 255, 255, 0.12) !important;
@@ -51,17 +59,15 @@ st.markdown(
     section[data-testid="stSidebar"] .stMarkdown h2, 
     section[data-testid="stSidebar"] .stMarkdown h3 {
         color: #ffffff !important;
-        font-size: 1.1rem !important;
-        letter-spacing: -0.01em !important;
+        font-size: 1.05rem !important;
     }
 
     /* Sidebar Quick Query Buttons */
     section[data-testid="stSidebar"] button {
-        background: rgba(30, 41, 59, 0.7) !important;
-        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        background: rgba(30, 41, 59, 0.8) !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
         color: #e2e8f0 !important;
         font-size: 0.88rem !important;
-        font-weight: 500 !important;
         border-radius: 10px !important;
         padding: 0.6rem 0.8rem !important;
         width: 100% !important;
@@ -73,10 +79,10 @@ st.markdown(
     section[data-testid="stSidebar"] button:hover {
         border-color: #38bdf8 !important;
         color: #38bdf8 !important;
-        background: rgba(56, 189, 248, 0.12) !important;
+        background: rgba(56, 189, 248, 0.15) !important;
     }
 
-    /* Title Styling */
+    /* Header Styling */
     .lexgo-title {
         font-size: 2.8rem;
         font-weight: 800;
@@ -105,24 +111,22 @@ st.markdown(
         margin-bottom: 2rem;
     }
 
-    /* Text Area Styling */
+    /* Clean Textarea (No solid blue background) */
     .stTextArea label {
-        font-size: 1rem !important;
+        font-size: 0.98rem !important;
         font-weight: 600 !important;
         color: #f1f5f9 !important;
         margin-bottom: 0.5rem !important;
     }
 
     .stTextArea textarea {
-        background: rgba(15, 23, 42, 0.70) !important;
-        backdrop-filter: blur(12px) !important;
-        -webkit-backdrop-filter: blur(12px) !important;
+        background: rgba(15, 23, 42, 0.60) !important;
+        backdrop-filter: blur(10px) !important;
         border: 1px solid rgba(255, 255, 255, 0.18) !important;
         color: #f8fafc !important;
         border-radius: 12px !important;
         font-size: 0.98rem !important;
         padding: 1rem !important;
-        transition: all 0.2s ease-in-out !important;
     }
 
     .stTextArea textarea:focus {
@@ -130,7 +134,7 @@ st.markdown(
         box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2) !important;
     }
 
-    /* Main Action Button Styling */
+    /* Primary Action Button */
     div.stButton > button {
         width: 100%;
         background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
@@ -153,7 +157,7 @@ st.markdown(
 
     /* Source Citation Expander */
     .stExpander {
-        background: rgba(15, 23, 42, 0.70) !important;
+        background: rgba(15, 23, 42, 0.65) !important;
         backdrop-filter: blur(12px) !important;
         border: 1px solid rgba(255, 255, 255, 0.15) !important;
         border-radius: 12px !important;
@@ -167,10 +171,8 @@ st.markdown(
         font-size: 0.88rem !important;
     }
 
-    /* Hide Default Streamlit Elements */
-    #MainMenu {visibility: hidden;}
+    /* Hide Default Footer */
     footer {visibility: hidden;}
-    header {visibility: hidden;}
     </style>
     """,
     unsafe_allow_html=True
@@ -188,14 +190,13 @@ except Exception:
 
 
 # =========================================================
-# 4. LEFT SIDEBAR PANEL (Features & Navigation)
+# 4. LEFT SIDEBAR PANEL
 # =========================================================
 with st.sidebar:
     st.markdown("## ⚖️ LexGO Portal")
     st.caption("Internal Repository Assistant")
     st.divider()
 
-    # --- Feature 1: Suggested Quick Queries ---
     st.markdown("### 💡 Suggested Queries")
     
     if st.button("📌 M&A Approval Rules"):
@@ -212,17 +213,14 @@ with st.sidebar:
 
     st.divider()
 
-    # --- Feature 2: Retrieval Settings ---
     st.markdown("### ⚙️ Search Controls")
     include_archived = st.checkbox("Include archived policies", value=False)
 
     st.divider()
 
-    # --- Feature 3: Repository Metadata ---
     st.markdown("### ℹ️ Repository Info")
     st.caption("• **Coverage:** IP, Corporate Governance, Real Estate, M&A")
     st.caption("• **Vector DB:** ChromaDB Hybrid Index")
-    st.caption("• **Engine:** RAG + OpenRouter")
 
 
 # =========================================================
@@ -248,7 +246,6 @@ if st.button("Analyze & Generate Answer") and question.strip():
     with st.spinner("Analyzing legal repository and verifying policy compliance..."):
         answer, sources = rag.answer_question(question)
         
-        # Filter archived if toggle is disabled in sidebar
         if not include_archived and sources:
             sources = [s for s in sources if s.get("is_current", True)]
 
