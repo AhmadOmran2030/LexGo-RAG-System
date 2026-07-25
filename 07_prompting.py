@@ -8,8 +8,8 @@ build_context = import_module("06_retrieve_context").build_context
 
 load_dotenv()
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
 
 
 def build_prompt(question, context):
@@ -28,10 +28,13 @@ Context:
 """
 
 
-def ask_openai(prompt):
-    client = OpenAI(api_key=OPENAI_API_KEY)
+def ask_openrouter(prompt):
+    client = OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=OPENROUTER_API_KEY,
+    )
     response = client.chat.completions.create(
-        model=OPENAI_MODEL,
+        model=OPENROUTER_MODEL,
         messages=[{"role": "user", "content": prompt}],
         temperature=0,
     )
@@ -42,7 +45,7 @@ def answer_question(question):
     context, sources = build_context(question)
     prompt = build_prompt(question, context)
 
-    if not OPENAI_API_KEY:
-        return "Missing OPENAI_API_KEY.", sources
+    if not OPENROUTER_API_KEY:
+        return "Missing OPENROUTER_API_KEY.", sources
 
-    return ask_openai(prompt), sources
+    return ask_openrouter(prompt), sources
