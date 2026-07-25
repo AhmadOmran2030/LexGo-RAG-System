@@ -9,7 +9,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# 2. Custom CSS & Styling (Enterprise Glassmorphism Theme)
+# 2. Custom CSS & Styling (Guaranteed Visible Background + Glass Container)
 st.markdown(
     """
     <style>
@@ -19,34 +19,28 @@ st.markdown(
         font-family: 'Plus Jakarta Sans', sans-serif !important;
     }
 
-    /* Background setup with modern Unsplash library visual */
+    /* Force background on main App container */
     .stApp {
-        background-image: linear-gradient(180deg, rgba(10, 15, 29, 0.80) 0%, rgba(10, 15, 29, 0.90) 100%), 
-                          url("https://images.unsplash.com/photo-1479142506502-19b3a3b7ff33?q=80&w=1170&auto=format&fit=crop");
-        background-size: cover;
-        background-position: center;
-        background-attachment: fixed;
+        background: linear-gradient(180deg, rgba(10, 15, 29, 0.70) 0%, rgba(10, 15, 29, 0.85) 100%), 
+                    url("https://images.unsplash.com/photo-1479142506502-19b3a3b7ff33?q=80&w=1170&auto=format&fit=crop") !important;
+        background-size: cover !important;
+        background-position: center !important;
+        background-attachment: fixed !important;
+    }
+
+    /* Keep main container background completely transparent */
+    .stAppHeader, .main, .main .block-container {
+        background: transparent !important;
     }
 
     /* Main Container Padding */
     .main .block-container {
-        padding-top: 2.5rem;
+        padding-top: 3rem;
         padding-bottom: 4rem;
-        max-width: 820px;
+        max-width: 800px;
     }
 
-    /* Central Glass Container Styling */
-    div[data-testid="stVerticalBlock"] > div:has(div.lexgo-header) {
-        background: rgba(15, 23, 42, 0.70);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 20px;
-        padding: 2.5rem 2rem;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-    }
-
-    /* Brand Header Styling */
+    /* Header Styling */
     .lexgo-title {
         font-size: 2.8rem;
         font-weight: 800;
@@ -72,25 +66,26 @@ st.markdown(
         font-size: 0.92rem;
         color: #94a3b8;
         line-height: 1.6;
-        margin-bottom: 1.8rem;
+        margin-bottom: 1.5rem;
     }
 
     /* Suggested Query Buttons */
     div[data-testid="stHorizontalBlock"] button {
-        background: rgba(30, 41, 59, 0.8) !important;
+        background: rgba(30, 41, 59, 0.65) !important;
         border: 1px solid rgba(255, 255, 255, 0.15) !important;
         color: #e2e8f0 !important;
         font-size: 0.82rem !important;
         font-weight: 500 !important;
         border-radius: 20px !important;
         padding: 0.4rem 0.8rem !important;
+        backdrop-filter: blur(8px) !important;
         transition: all 0.2s ease !important;
     }
 
     div[data-testid="stHorizontalBlock"] button:hover {
         border-color: #38bdf8 !important;
         color: #38bdf8 !important;
-        background: rgba(56, 189, 248, 0.1) !important;
+        background: rgba(56, 189, 248, 0.15) !important;
     }
 
     /* Text Area Styling */
@@ -102,8 +97,10 @@ st.markdown(
     }
 
     .stTextArea textarea {
-        background: rgba(30, 41, 59, 0.7) !important;
-        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        background: rgba(15, 23, 42, 0.65) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.18) !important;
         color: #f8fafc !important;
         border-radius: 12px !important;
         font-size: 0.98rem !important;
@@ -139,14 +136,15 @@ st.markdown(
 
     /* Source Citation Expander */
     .stExpander {
-        background: rgba(30, 41, 59, 0.5) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        background: rgba(15, 23, 42, 0.65) !important;
+        backdrop-filter: blur(12px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
         border-radius: 12px !important;
         color: #f8fafc !important;
         margin-top: 1.5rem !important;
     }
 
-    /* Toggle Switch Styling */
+    /* Checkbox Label Styling */
     .stCheckbox label {
         color: #cbd5e1 !important;
         font-size: 0.88rem !important;
@@ -172,7 +170,6 @@ except Exception:
     pass
 
 # 4. Header Section
-st.markdown('<div class="lexgo-header"></div>', unsafe_allow_html=True)
 st.markdown('<h1 class="lexgo-title">LexGO ⚖️</h1>', unsafe_allow_html=True)
 st.markdown('<div class="lexgo-slogan">Navigate Law with Precision</div>', unsafe_allow_html=True)
 st.markdown(
@@ -215,7 +212,14 @@ if st.button("Analyze & Generate Answer") and question.strip():
 
         st.markdown("<br>", unsafe_allow_html=True)
         st.subheader("Legal Analysis")
-        st.markdown(f"<div style='background: rgba(30, 41, 59, 0.6); padding: 1.2rem; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; line-height: 1.7;'>{answer}</div>", unsafe_allow_html=True)
+        st.markdown(
+            f"""
+            <div style='background: rgba(15, 23, 42, 0.70); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: 1.4rem; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.15); color: #f8fafc; line-height: 1.7;'>
+                {answer}
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
 
         if sources:
             with st.expander("📌 Retrieved Internal References & Citations"):
