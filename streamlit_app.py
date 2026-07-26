@@ -3,7 +3,7 @@ import os
 from importlib import import_module
 import streamlit as st
 
-# Ensure ./data directory exists for PDF uploads
+# Ensure ./data directory exists for uploads
 DATA_DIR = "./data"
 os.makedirs(DATA_DIR, exist_ok=True)
 
@@ -151,7 +151,7 @@ st.markdown(
         border: 1px solid rgba(255, 255, 255, 0.1) !important;
         border-radius: 12px !important;
         padding: 0.8rem 1.5rem !important;
-        transition: all 0.25s ease !important;
+        transition: all 0.2s ease !important;
         box-shadow: 0 4px 15px rgba(2, 132, 199, 0.3) !important;
         margin-top: 0.5rem;
     }
@@ -200,20 +200,23 @@ with st.sidebar:
     st.caption("Internal Repository Assistant")
     st.divider()
 
-    # 📄 Document Upload Section
+    # 📄 Document Upload Section (Supports PDF & Word Files)
     st.markdown("### 📄 Document Ingestion")
-    uploaded_pdf = st.file_uploader("Upload legal PDF document", type=["pdf"])
+    uploaded_file = st.file_uploader(
+        "Upload legal document (PDF or Word)", 
+        type=["pdf", "docx", "doc"]
+    )
 
-    if uploaded_pdf is not None:
-        target_path = os.path.join(DATA_DIR, uploaded_pdf.name)
+    if uploaded_file is not None:
+        target_path = os.path.join(DATA_DIR, uploaded_file.name)
         if not os.path.exists(target_path):
             with open(target_path, "wb") as f:
-                f.write(uploaded_pdf.getbuffer())
-            st.success(f"Uploaded `{uploaded_pdf.name}`")
+                f.write(uploaded_file.getbuffer())
+            st.success(f"Uploaded `{uploaded_file.name}`")
             st.cache_data.clear()
             st.rerun()
         else:
-            st.info(f"`{uploaded_pdf.name}` is loaded.")
+            st.info(f"`{uploaded_file.name}` is loaded.")
 
     st.divider()
 
@@ -247,11 +250,15 @@ with st.sidebar:
 
     # Dynamic document status count
     current_docs = docs_module.get_documents() if hasattr(docs_module, "get_documents") else docs_module.documents
-    pdf_docs = [d for d in current_docs if d["id"].startswith("pdf_")]
+    user_uploaded_docs = [
+        d for d in current_docs 
+        if d["id"].startswith("pdf_") or d["id"].startswith("docx_") or d["id"].startswith("doc_")
+    ]
 
     st.markdown("### ℹ️ Repository Info")
     st.caption(f"• **Total Documents:** {len(current_docs)}")
-    st.caption(f"• **Custom PDFs Ingested:** {len(pdf_docs)}")
+    st.caption(f"• **User Uploaded Docs:** {len(user_uploaded_docs)}")
+    st.caption("• **Supported Formats:** PDF, DOCX, DOC")
     st.caption("• **Coverage:** IP, Corporate Governance, Real Estate, M&A")
     st.caption("• **Vector DB:** ChromaDB Hybrid Index")
 
