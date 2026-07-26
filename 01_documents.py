@@ -1,13 +1,13 @@
 """
 01_documents.py
-Main document repository combining internal legal policies and local PDF files from ./data/
+Document repository containing corporate policies and dynamic PDF files from ./data/
 """
 
 import os
 from pypdf import PdfReader
 
-# 1. Base Corporate Governance & M&A Policies
-documents = [
+# Base Corporate & M&A Policies
+base_documents = [
     {
         "id": "board_independence_policy",
         "title": "Board Composition and Independence Policy",
@@ -79,11 +79,8 @@ documents = [
     },
 ]
 
-# 2. Intellectual Property & Real Estate Law Policies
+# IP & Real Estate Policies
 property_and_ip_documents = [
-    # ---------------------------------------------------------
-    # Intellectual Property Law (IP Expansion)
-    # ---------------------------------------------------------
     {
         "id": "trade_secret_protection_policy",
         "title": "Trade Secret Protection Policy",
@@ -224,10 +221,6 @@ property_and_ip_documents = [
             "absence of litigation encumbrances, and valid assignment deeds from all historical inventors."
         ),
     },
-
-    # ---------------------------------------------------------
-    # Property & Real Estate Law
-    # ---------------------------------------------------------
     {
         "id": "commercial_lease_review_policy",
         "title": "Commercial Real Estate Lease Policy",
@@ -366,13 +359,9 @@ property_and_ip_documents = [
     },
 ]
 
-# Merge the Python lists
-documents.extend(property_and_ip_documents)
 
-
-# 3. Dynamic PDF File Ingestion
 def load_pdf_documents(folder_path: str = "./data") -> list:
-    """Scans the ./data directory for PDF files and converts them to document dictionaries."""
+    """Scans folder_path for PDFs, extracts text page-by-page, and returns formatted document dicts."""
     pdf_docs = []
 
     if not os.path.exists(folder_path):
@@ -398,7 +387,7 @@ def load_pdf_documents(folder_path: str = "./data") -> list:
                     pdf_docs.append({
                         "id": doc_id,
                         "title": doc_title,
-                        "is_current": True,  # Default status for new PDFs
+                        "is_current": True,
                         "text": full_text.strip(),
                     })
             except Exception as e:
@@ -407,11 +396,22 @@ def load_pdf_documents(folder_path: str = "./data") -> list:
     return pdf_docs
 
 
-# Load PDFs from ./data/ and append to the main documents array
-pdf_documents = load_pdf_documents(folder_path="./data")
-documents.extend(pdf_documents)
+def get_documents(data_folder: str = "./data") -> list:
+    """
+    Main accessor function: Combines built-in policy lists with dynamic PDFs.
+    Import and call this in app.py or indexing scripts.
+    """
+    all_docs = []
+    all_docs.extend(base_documents)
+    all_docs.extend(property_and_ip_documents)
+    all_docs.extend(load_pdf_documents(folder_path=data_folder))
+    return all_docs
 
 
-def get_documents() -> list:
-    """Accessor function for downstream modules (e.g., chunking, vector indexing)."""
-    return documents
+# Allow direct execution testing: python 01_documents.py
+if __name__ == "__main__":
+    docs = get_documents()
+    print(f"Successfully loaded {len(docs)} total documents.")
+    pdf_count = sum(1 for d in docs if d["id"].startswith("pdf_"))
+    print(f"  - Hardcoded documents: {len(docs) - pdf_count}")
+    print(f"  - PDF documents loaded: {pdf_count}")
