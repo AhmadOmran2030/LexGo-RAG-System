@@ -1,6 +1,11 @@
 import base64
+import os
 from importlib import import_module
 import streamlit as st
+
+# Ensure ./data directory exists for PDF uploads
+DATA_DIR = "./data"
+os.makedirs(DATA_DIR, exist_ok=True)
 
 # 1. Page Configuration
 st.set_page_config(
@@ -76,6 +81,14 @@ st.markdown(
         border-color: #38bdf8 !important;
         color: #38bdf8 !important;
         background: rgba(56, 189, 248, 0.15) !important;
+    }
+
+    /* File Uploader Custom Styling */
+    section[data-testid="stSidebar"] [data-testid="stFileUploader"] {
+        background: rgba(30, 41, 59, 0.5) !important;
+        border-radius: 10px !important;
+        padding: 0.5rem !important;
+        border: 1px dashed rgba(255, 255, 255, 0.2) !important;
     }
 
     /* Typography */
@@ -169,8 +182,9 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# 3. Import RAG Backend
+# 3. Import Modules
 rag = import_module("07_prompting")
+docs_module = import_module("01_documents")
 
 try:
     if not rag.OPENROUTER_API_KEY:
@@ -184,6 +198,23 @@ except Exception:
 with st.sidebar:
     st.markdown("## ⚖️ LexGO Portal")
     st.caption("Internal Repository Assistant")
+    st.divider()
+
+    # 📄 Document Upload Section
+    st.markdown("### 📄 Document Ingestion")
+    uploaded_pdf = st.file_uploader("Upload legal PDF document", type=["pdf"])
+
+    if uploaded_pdf is not None:
+        target_path = os.path.join(DATA_DIR, uploaded_pdf.name)
+        if not os.path.exists(target_path):
+            with open(target_path, "wb") as f:
+                f.write(uploaded_pdf.getbuffer())
+            st.success(f"Uploaded `{uploaded_pdf.name}`")
+            st.cache_data.clear()
+            st.rerun()
+        else:
+            st.info(f"`{uploaded_pdf.name}` is loaded.")
+
     st.divider()
 
     st.markdown("### 💡 Suggested Queries")
@@ -214,7 +245,13 @@ with st.sidebar:
 
     st.divider()
 
+    # Dynamic document status count
+    current_docs = docs_module.get_documents() if hasattr(docs_module, "get_documents") else docs_module.documents
+    pdf_docs = [d for d in current_docs if d["id"].startswith("pdf_")]
+
     st.markdown("### ℹ️ Repository Info")
+    st.caption(f"• **Total Documents:** {len(current_docs)}")
+    st.caption(f"• **Custom PDFs Ingested:** {len(pdf_docs)}")
     st.caption("• **Coverage:** IP, Corporate Governance, Real Estate, M&A")
     st.caption("• **Vector DB:** ChromaDB Hybrid Index")
 
