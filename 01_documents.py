@@ -406,5 +406,5 @@ def get_documents(data_folder: str = "./data") -> list:
     return all_docs
 
 
-# Expose top-level documents variable for direct imports (e.g. 03_chunking.py)
+# Expose top-level documents variable for direct imports
 documents = get_documents()
