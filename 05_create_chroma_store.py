@@ -6,7 +6,13 @@ from chromadb.config import Settings
 
 vectors = import_module("04_vector_representation")
 
-DB_PATH = Path(__file__).resolve().parent / "chroma_db"
+# Safe path resolution for both scripts and notebooks
+try:
+    BASE_DIR = Path(__file__).resolve().parent
+except NameError:
+    BASE_DIR = Path.cwd()
+
+DB_PATH = BASE_DIR / "chroma_db"
 COLLECTION_NAME = "legal_docs"
 
 
@@ -25,6 +31,7 @@ def create_vector_store():
                 "document_id": chunk["document_id"],
                 "title": chunk["title"],
                 "is_current": str(chunk["is_current"]),
+                "search_text": chunk.get("search_text", ""),
             }
             for chunk in vectors.chunks
         ],
@@ -36,5 +43,4 @@ def create_vector_store():
 
 if __name__ == "__main__":
     create_vector_store()
-    print("Chroma vector store created.")
-
+    print(f"Chroma vector store created at: {DB_PATH}")
