@@ -3,17 +3,16 @@ import os
 from importlib import import_module
 import streamlit as st
 
-# 1. Page Configuration (MUST be the first Streamlit command)
+# استدعاء دالة المعالجة وحفظ الملفات من data_loader
+from data_loader import process_and_index_file, DATA_DIR
+
+# 1. Page Configuration
 st.set_page_config(
     page_title="LexGO | AI Legal Intelligence", 
     page_icon="⚖️", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-# Ensure ./data directory exists for uploads
-DATA_DIR = "./data"
-os.makedirs(DATA_DIR, exist_ok=True)
 
 # 2. Custom CSS
 st.markdown(
@@ -25,7 +24,6 @@ st.markdown(
         font-family: 'Plus Jakarta Sans', sans-serif !important;
     }
 
-    /* Background image styling */
     .stApp {
         background: linear-gradient(180deg, rgba(10, 15, 29, 0.70) 0%, rgba(10, 15, 29, 0.85) 100%), 
                     url("https://images.unsplash.com/photo-1479142506502-19b3a3b7ff33?q=80&w=1170&auto=format&fit=crop") !important;
@@ -50,7 +48,6 @@ st.markdown(
         max-width: 900px;
     }
 
-    /* Sidebar Glassmorphism */
     section[data-testid="stSidebar"] {
         background: rgba(15, 23, 42, 0.85) !important;
         backdrop-filter: blur(16px) !important;
@@ -83,7 +80,6 @@ st.markdown(
         background: rgba(56, 189, 248, 0.15) !important;
     }
 
-    /* File Uploader Custom Styling */
     section[data-testid="stSidebar"] [data-testid="stFileUploader"] {
         background: rgba(30, 41, 59, 0.5) !important;
         border-radius: 10px !important;
@@ -91,7 +87,6 @@ st.markdown(
         border: 1px dashed rgba(255, 255, 255, 0.2) !important;
     }
 
-    /* Typography */
     .lexgo-title {
         font-size: 2.8rem;
         font-weight: 800;
@@ -193,120 +188,13 @@ try:
 except Exception:
     pass
 
-
-# 4. Helper Function for Processing & Indexing Uploaded Document
-def process_and_index_file(uploaded_file, target_path):
-    """
-    Extracts text, creates chunks, and inserts into ChromaDB safely.
-    """
-    ext = os.path.splitext(uploaded_file.name)[1].lower()
-    full_text = ""
-
-    # 1. Extract Text based on file format
-    try:
-        if ext == ".pdf":
-            from pypdf import PdfReader
-            reader = PdfReader(target_path)
-            for page in reader.pages:
-                t = page.extract_text()
-                if t:
-                    full_text += t + "\n"
-        elif ext in [".docx", ".doc"]:
-            import docx
-            doc = docx.Document(target_path)
-            full_text = "\n".join([p.text for p in doc.paragraphs if p.text])
-    except Exception as err:
-        return False, f"Error reading file: {str(err)}"
-
-    if not full_text.strip():
-        return False, "File contains no readable text."
-
-    clean_name = os.path.splitext(uploaded_file.name)[0]
-    prefix = "pdf_" if ext == ".pdf" else "docx_"
-    doc_id = f"{prefix}{clean_name.lower().replace(' ', '_')}"
-    doc_title = clean_name.replace("_", " ").title()
-
-    new_doc = {
-        "id": doc_id,
-        "title": doc_title,
-        "is_current": True,
-        "text": full_text.strip()
-    }
-
-    # 2. Chunking Logic (Safe Fallback)
-    try:
-        if hasattr(rag, "chunk_document"):
-            new_chunks = rag.chunk_document(new_doc)
-        else:
-            text = new_doc["text"]
-            chunk_size = 500
-            overlap = 50
-            chunks_list = []
-            start = 0
-            idx = 0
-            while start < len(text):
-                end = start + chunk_size
-                chunk_str = text[start:end]
-                chunks_list.append({
-                    "chunk_id": f"{doc_id}_c{idx}",
-                    "doc_id": doc_id,
-                    "title": doc_title,
-                    "is_current": True,
-                    "chunk_text": chunk_str
-                })
-                start += chunk_size - overlap
-                idx += 1
-            new_chunks = chunks_list
-
-        # 3. Access Chroma Collection Instance
-        collection_obj = None
-
-        # Check in rag module
-        for attr in ["collection", "vector_store", "chroma_collection", "db"]:
-            if hasattr(rag, attr):
-                collection_obj = getattr(rag, attr)
-                break
-
-        # Check in docs_module
-        if collection_obj is None:
-            for attr in ["collection", "vector_store", "chroma_collection", "db"]:
-                if hasattr(docs_module, attr):
-                    collection_obj = getattr(docs_module, attr)
-                    break
-
-        # Fallback: Create direct ChromaDB Client connection
-        if collection_obj is None:
-            import chromadb
-            client = chromadb.PersistentClient(path="./chroma_db")
-            collection_obj = client.get_or_create_collection(name="lexgo_docs")
-
-        # 4. Direct Insertion into Vector DB
-        ids = [c["chunk_id"] for c in new_chunks]
-        documents = [c["chunk_text"] for c in new_chunks]
-        metadatas = [
-            {
-                "doc_id": c["doc_id"],
-                "title": c["title"],
-                "is_current": c["is_current"],
-                "chunk_text": c["chunk_text"]
-            }
-            for c in new_chunks
-        ]
-
-        collection_obj.add(ids=ids, documents=documents, metadatas=metadatas)
-        return True, f"Successfully indexed {len(new_chunks)} chunks!"
-
-    except Exception as e:
-        return False, f"Indexing failed: {str(e)}"
-
-
-# 5. LEFT SIDEBAR PANEL
+# 4. LEFT SIDEBAR PANEL
 with st.sidebar:
     st.markdown("## ⚖️ LexGO Portal")
     st.caption("Internal Repository Assistant")
     st.divider()
 
-    # 📄 Document Upload Section (Supports PDF & Word Files)
+    # 📄 Upload & Save Section
     st.markdown("### 📄 Document Ingestion")
     uploaded_file = st.file_uploader(
         "Upload legal document (PDF or Word)", 
@@ -314,27 +202,23 @@ with st.sidebar:
     )
 
     if uploaded_file is not None:
-        target_path = os.path.join(DATA_DIR, uploaded_file.name)
-        
         if "indexed_files" not in st.session_state:
             st.session_state.indexed_files = set()
 
+        # التأكد من الحفظ والتفهرس مرة واحدة فقط لكل ملف
         if uploaded_file.name not in st.session_state.indexed_files:
-            with st.spinner("Processing & Indexing document into Vector DB..."):
-                with open(target_path, "wb") as f:
-                    f.write(uploaded_file.getbuffer())
-
-                success, msg = process_and_index_file(uploaded_file, target_path)
+            with st.spinner("Saving to `./data` & Training Vector DB..."):
+                success, msg = process_and_index_file(uploaded_file, rag_module=rag)
 
                 if success:
                     st.session_state.indexed_files.add(uploaded_file.name)
-                    st.success(f"✅ `{uploaded_file.name}` ingested successfully!")
+                    st.success(f"✅ `{uploaded_file.name}` {msg}")
                     st.cache_data.clear()
                     st.rerun()
                 else:
                     st.error(f"⚠️ {msg}")
         else:
-            st.info(f"🟢 `{uploaded_file.name}` is loaded and indexed.")
+            st.info(f"🟢 `{uploaded_file.name}` saved in `./data` & fully indexed.")
 
     st.divider()
 
@@ -366,22 +250,16 @@ with st.sidebar:
 
     st.divider()
 
-    # Dynamic document status count
-    current_docs = docs_module.get_documents() if hasattr(docs_module, "get_documents") else getattr(docs_module, "documents", [])
-    user_uploaded_docs = [
-        d for d in current_docs 
-        if d.get("id", "").startswith("pdf_") or d.get("id", "").startswith("docx_") or d.get("id", "").startswith("doc_")
-    ]
-
+    # عرض عدد الملفات المحفوظة
+    saved_files = os.listdir(DATA_DIR) if os.path.exists(DATA_DIR) else []
+    
     st.markdown("### ℹ️ Repository Info")
-    st.caption(f"• **Total Documents:** {len(current_docs)}")
-    st.caption(f"• **User Uploaded Docs:** {len(user_uploaded_docs)}")
+    st.caption(f"• **Saved Files in `./data`:** {len(saved_files)}")
     st.caption("• **Supported Formats:** PDF, DOCX, DOC")
-    st.caption("• **Coverage:** IP, Corporate Governance, Real Estate, M&A")
     st.caption("• **Vector DB:** ChromaDB Hybrid Index")
 
 
-# 6. MAIN CONTENT AREA
+# 5. MAIN CONTENT AREA
 st.markdown('<h1 class="lexgo-title">LexGO ⚖️</h1>', unsafe_allow_html=True)
 st.markdown('<div class="lexgo-slogan">Navigate Law with Precision</div>', unsafe_allow_html=True)
 st.markdown(
@@ -409,7 +287,6 @@ if st.button("Analyze & Generate Answer") and question.strip():
         st.markdown("<br>", unsafe_allow_html=True)
         st.subheader("Legal Analysis")
         
-        # Container box
         with st.container():
             st.markdown(answer)
 
