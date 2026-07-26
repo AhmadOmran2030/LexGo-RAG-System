@@ -6,6 +6,7 @@ from importlib import import_module
 import streamlit as st
 import chromadb
 from chromadb.config import Settings
+import toml
 
 # ==============================================================================
 # 1. PAGE CONFIGURATION
@@ -113,48 +114,55 @@ rag = import_module("07_prompting")
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# تهيئة الـ API Key من البيئة المباشرة
+# تهيئة المفتاح من Secrets أو بيئة العمل
 if "active_api_key" not in st.session_state:
-    st.session_state.active_api_key = os.getenv("OPENROUTER_API_KEY", "")
+    st.session_state.active_api_key = st.secrets.get("OPENROUTER_API_KEY", os.getenv("OPENROUTER_API_KEY", ""))
 
 # ==============================================================================
 # 3. HELPER & EVALUATION FUNCTIONS
 # ==============================================================================
 def update_api_key(new_key: str):
-    """تحديث مفتاح API تلقائياً في الجلسة والبيئة وملف .env"""
+    """
+    التحقق من المفتاح وتحديثه داخل st.secrets والبيئة الحالية وملف secrets.toml
+    """
     clean_key = new_key.strip()
-    if clean_key:
-        # 1. تحديث المتغير في Session State
-        st.session_state.active_api_key = clean_key
+    if not clean_key:
+        return "empty", "الرجاء إدخال API Key صالح."
+
+    # 1. جلب المفتاح الحالي للمقارنة
+    current_key = st.session_state.active_api_key
+
+    # 2. التحقق مما إذا كان المفتاح مُستخدم بالفعل
+    if clean_key == current_key:
+        return "already_used", "هذا الـ API Key مستخدم بالفعل حالياً!"
+
+    # 3. تحديث الجلسة والبيئة الحالية فوراً
+    st.session_state.active_api_key = clean_key
+    os.environ["OPENROUTER_API_KEY"] = clean_key
+    os.environ["OPENAI_API_KEY"] = clean_key
+
+    # 4. حفظ وتعديل المفتاح في ملف secrets الخاص بـ Streamlit (.streamlit/secrets.toml)
+    secrets_dir = ".streamlit"
+    secrets_file = os.path.join(secrets_dir, "secrets.toml")
+    
+    try:
+        os.makedirs(secrets_dir, exist_ok=True)
+        secrets_data = {}
         
-        # 2. تحديث متغيرات البيئة تلقائياً
-        os.environ["OPENROUTER_API_KEY"] = clean_key
-        os.environ["OPENAI_API_KEY"] = clean_key
+        if os.path.exists(secrets_file):
+            with open(secrets_file, "r", encoding="utf-8") as f:
+                secrets_data = toml.load(f)
+                
+        secrets_data["OPENROUTER_API_KEY"] = clean_key
         
-        # 3. كتابة/تحديث المفتاح داخل ملف .env
-        env_path = ".env"
-        lines = []
-        if os.path.exists(env_path):
-            with open(env_path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-        
-        key_found = False
-        new_lines = []
-        for line in lines:
-            if line.startswith("OPENROUTER_API_KEY="):
-                new_lines.append(f"OPENROUTER_API_KEY={clean_key}\n")
-                key_found = True
-            else:
-                new_lines.append(line)
-        
-        if not key_found:
-            new_lines.append(f"\nOPENROUTER_API_KEY={clean_key}\n")
-            
-        with open(env_path, "w", encoding="utf-8") as f:
-            f.writelines(new_lines)
-            
-        return True
-    return False
+        with open(secrets_file, "w", encoding="utf-8") as f:
+            toml.dump(secrets_data, f)
+
+        st.secrets["OPENROUTER_API_KEY"] = clean_key
+
+        return "success", "تم استخدام الـ API Key الجديد وتعديله في إعدادات Secrets بنجاح! 🎉"
+    except Exception as e:
+        return "error", f"تم استخدام المفتاح في الجلسة الحالية، ولكن تعذر تعديله في ملف Secrets: {str(e)}"
 
 
 def calculate_retrieval_hit(sources):
@@ -232,7 +240,6 @@ with st.sidebar:
     with st.expander("🔑 Admin API Configuration", expanded=False):
         st.markdown("**System API Key Management**")
         
-        # إظهار حالة المفتاح الحالي
         current_key = st.session_state.active_api_key
         if current_key:
             masked_key = current_key[:6] + "..." + current_key[-4:] if len(current_key) > 10 else "Saved"
@@ -241,19 +248,21 @@ with st.sidebar:
             st.warning("⚠️ No Active API Key Set!")
 
         new_api_input = st.text_input(
-            "Enter New API Key", 
+            "Enter API Key", 
             type="password", 
             placeholder="sk-or-v1-...", 
             help="Insert your OpenRouter or OpenAI key"
         )
         
-        if st.button("🔄 Update API Key"):
-            if new_api_input:
-                if update_api_key(new_api_input):
-                    st.success("✅ API Key updated seamlessly!")
-                    st.rerun()
-            else:
-                st.error("Please enter a valid key.")
+        if st.button("🔄 Apply API Key"):
+            status, msg = update_api_key(new_api_input)
+            if status == "already_used":
+                st.info(f"ℹ️ {msg}")
+            elif status == "success":
+                st.success(f"✅ {msg}")
+                st.rerun()
+            elif status in ["empty", "error"]:
+                st.error(f"⚠️ {msg}")
 
     st.divider()
 
@@ -318,7 +327,7 @@ if prompt := st.chat_input("Ask a legal or policy question..."):
                 answer, sources = rag.answer_question(prompt)
             except Exception as e:
                 if "429" in str(e):
-                    answer = "⚠️ **Rate Limit Exceeded:** انتهت حليقة الطلبات المتاحة للـ API Key الحالي. يرجى إدخال API Key جديد من القائمة الجانبية (Admin API Configuration)."
+                    answer = "⚠️ **Rate Limit Exceeded:** انتهت الطلبات المتاحة للـ API Key الحالي. يرجى إدخال API Key جديد من القائمة الجانبية (Admin API Configuration)."
                     sources = []
                 else:
                     answer = f"⚠️ **Error:** {str(e)}"
