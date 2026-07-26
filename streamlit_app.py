@@ -2,7 +2,7 @@ import base64
 from importlib import import_module
 import streamlit as st
 
-# 1. Page Configuration (Force Sidebar Expanded by Default)
+# 1. Page Configuration
 st.set_page_config(
     page_title="LexGO | AI Legal Intelligence", 
     page_icon="⚖️", 
@@ -10,7 +10,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. Custom CSS (Fixes Sidebar & Removes Blue Boxes)
+# 2. Custom CSS
 st.markdown(
     """
     <style>
@@ -20,7 +20,7 @@ st.markdown(
         font-family: 'Plus Jakarta Sans', sans-serif !important;
     }
 
-    /* Force background image on the main app background */
+    /* Background image styling */
     .stApp {
         background: linear-gradient(180deg, rgba(10, 15, 29, 0.70) 0%, rgba(10, 15, 29, 0.85) 100%), 
                     url("https://images.unsplash.com/photo-1479142506502-19b3a3b7ff33?q=80&w=1170&auto=format&fit=crop") !important;
@@ -29,26 +29,23 @@ st.markdown(
         background-attachment: fixed !important;
     }
 
-    /* Keep main container transparent so image shows through */
     .stAppHeader, .main, .main .block-container {
         background: transparent !important;
     }
 
-    /* Ensure Sidebar Collapse/Expand Toggle Arrow is ALWAYS Visible */
     [data-testid="stSidebarNavSeparator"], button[data-testid="baseButton-header"] {
         display: block !important;
         visibility: visible !important;
         color: #ffffff !important;
     }
 
-    /* Main Container Padding */
     .main .block-container {
         padding-top: 2rem;
         padding-bottom: 4rem;
         max-width: 900px;
     }
 
-    /* Sidebar Custom Styling (Dark Translucent Glass) */
+    /* Sidebar Glassmorphism */
     section[data-testid="stSidebar"] {
         background: rgba(15, 23, 42, 0.85) !important;
         backdrop-filter: blur(16px) !important;
@@ -62,7 +59,6 @@ st.markdown(
         font-size: 1.05rem !important;
     }
 
-    /* Sidebar Quick Query Buttons */
     section[data-testid="stSidebar"] button {
         background: rgba(30, 41, 59, 0.8) !important;
         border: 1px solid rgba(255, 255, 255, 0.15) !important;
@@ -82,7 +78,7 @@ st.markdown(
         background: rgba(56, 189, 248, 0.15) !important;
     }
 
-    /* Header Styling */
+    /* Typography */
     .lexgo-title {
         font-size: 2.8rem;
         font-weight: 800;
@@ -111,7 +107,6 @@ st.markdown(
         margin-bottom: 2rem;
     }
 
-    /* Clean Textarea (No solid blue background) */
     .stTextArea label {
         font-size: 0.98rem !important;
         font-weight: 600 !important;
@@ -134,7 +129,6 @@ st.markdown(
         box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2) !important;
     }
 
-    /* Primary Action Button */
     div.stButton > button {
         width: 100%;
         background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
@@ -155,7 +149,6 @@ st.markdown(
         background: linear-gradient(135deg, #0369a1 0%, #075985 100%) !important;
     }
 
-    /* Source Citation Expander */
     .stExpander {
         background: rgba(15, 23, 42, 0.65) !important;
         backdrop-filter: blur(12px) !important;
@@ -165,13 +158,11 @@ st.markdown(
         margin-top: 1.5rem !important;
     }
 
-    /* Checkbox Label Styling */
     .stCheckbox label {
         color: #cbd5e1 !important;
         font-size: 0.88rem !important;
     }
 
-    /* Hide Default Footer */
     footer {visibility: hidden;}
     </style>
     """,
@@ -189,9 +180,7 @@ except Exception:
     pass
 
 
-# =========================================================
 # 4. LEFT SIDEBAR PANEL
-# =========================================================
 with st.sidebar:
     st.markdown("## ⚖️ LexGO Portal")
     st.caption("Internal Repository Assistant")
@@ -199,17 +188,24 @@ with st.sidebar:
 
     st.markdown("### 💡 Suggested Queries")
     
+    def set_query(text):
+        st.session_state["user_query"] = text
+
     if st.button("📌 M&A Approval Rules"):
-        st.session_state["user_query"] = "What are the required board and shareholder approvals for a merger?"
+        set_query("What are the required board and shareholder approvals for a merger?")
+        st.rerun()
 
     if st.button("🔒 Trade Secret Policy"):
-        st.session_state["user_query"] = "How does the company protect proprietary source code and trade secrets?"
+        set_query("How does the company protect proprietary source code and trade secrets?")
+        st.rerun()
 
     if st.button("🏢 Commercial Leases"):
-        st.session_state["user_query"] = "What is the approval process for commercial real estate leases exceeding 12 months?"
+        set_query("What is the approval process for commercial real estate leases exceeding 12 months?")
+        st.rerun()
 
     if st.button("🏷️ Trademark Clearance"):
-        st.session_state["user_query"] = "What is the policy for clearing new product or brand names before public launch?"
+        set_query("What is the policy for clearing new product or brand names before public launch?")
+        st.rerun()
 
     st.divider()
 
@@ -223,9 +219,7 @@ with st.sidebar:
     st.caption("• **Vector DB:** ChromaDB Hybrid Index")
 
 
-# =========================================================
 # 5. MAIN CONTENT AREA
-# =========================================================
 st.markdown('<h1 class="lexgo-title">LexGO ⚖️</h1>', unsafe_allow_html=True)
 st.markdown('<div class="lexgo-slogan">Navigate Law with Precision</div>', unsafe_allow_html=True)
 st.markdown(
@@ -246,19 +240,16 @@ if st.button("Analyze & Generate Answer") and question.strip():
     with st.spinner("Analyzing legal repository and verifying policy compliance..."):
         answer, sources = rag.answer_question(question)
         
+        # Filter archived sources if unchecked
         if not include_archived and sources:
             sources = [s for s in sources if s.get("is_current", True)]
 
         st.markdown("<br>", unsafe_allow_html=True)
         st.subheader("Legal Analysis")
-        st.markdown(
-            f"""
-            <div style='background: rgba(15, 23, 42, 0.70); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: 1.4rem; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.15); color: #f8fafc; line-height: 1.7;'>
-                {answer}
-            </div>
-            """, 
-            unsafe_allow_html=True
-        )
+        
+        # Container box
+        with st.container():
+            st.markdown(answer)
 
         if sources:
             with st.expander("📌 Retrieved Internal References & Citations"):
