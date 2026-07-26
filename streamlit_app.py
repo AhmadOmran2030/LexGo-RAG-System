@@ -2,6 +2,7 @@ import base64
 import os
 import re
 import sys
+import shutil
 from importlib import import_module
 import streamlit as st
 import chromadb
@@ -17,7 +18,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Setup Directories
+# Setup Directories (المجلدات الدائمة)
 DATA_DIR = "./data"
 CHROMA_DB_DIR = "./chroma_db"
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -73,14 +74,6 @@ st.markdown(
         margin-bottom: 0.8rem;
     }
 
-    .stExpander {
-        background: rgba(15, 23, 42, 0.65) !important;
-        backdrop-filter: blur(12px) !important;
-        border: 1px solid rgba(255, 255, 255, 0.15) !important;
-        border-radius: 12px !important;
-        color: #f8fafc !important;
-    }
-    
     .confidence-badge-high {
         background-color: rgba(34, 197, 94, 0.2);
         color: #4ade80;
@@ -110,6 +103,16 @@ st.markdown(
 # ==============================================================================
 rag = import_module("07_prompting")
 
+# استدعاء وحدة التقطيع الذكي بحماية
+try:
+    chunk_module = import_module("03_chunking")
+    chunk_by_paragraphs = getattr(chunk_module, "chunk_by_paragraphs")
+except Exception:
+    def chunk_by_paragraphs(text: str, max_words: int = 300, overlap_paragraphs: int = 1):
+        # Fallback بسيط إذا لم يتوفر الموديول
+        paras = [p.strip() for p in text.split("\n\n") if p.strip()]
+        return paras if paras else [text]
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -130,11 +133,14 @@ def calculate_context_faithfulness(answer, sources):
     shared_words = answer_words.intersection(context_words)
     return min(round((len(shared_words) / len(answer_words)) * 100, 1), 100.0)
 
+# الدالة المسؤولة عن الحفظ الدائم في ./data وفي قاعدة بيانات ChromaDB
 def process_and_index_file(uploaded_file):
+    # 1. حفظ الملف في المجلد بشكل دائم على السيرفر
     target_path = os.path.join(DATA_DIR, uploaded_file.name)
     with open(target_path, "wb") as f:
         f.write(uploaded_file.getbuffer())
     
+    # 2. استخراج النص من الملف
     ext = os.path.splitext(uploaded_file.name)[1].lower()
     full_text = ""
     try:
@@ -150,34 +156,58 @@ def process_and_index_file(uploaded_file):
         return False, f"Extraction Error: {str(e)}"
 
     if not full_text.strip():
-        return False, "Empty Document"
+        return False, "الملف فارغ أو لا يحتوي على نصوص قابلة للقراءة"
 
     clean_name = os.path.splitext(uploaded_file.name)[0]
     doc_id = f"doc_{clean_name.lower().replace(' ', '_')}"
     
-    # Simple chunking
+    # 3. تقسيم النص باستخدام Paragraph Chunking من 03_chunking.py
+    text_chunks = chunk_by_paragraphs(full_text, max_words=300, overlap_paragraphs=1)
+    
     chunks = []
-    chunk_size = 500
-    for i in range(0, len(full_text), chunk_size - 50):
+    for idx, chunk_text in enumerate(text_chunks):
         chunks.append({
-            "chunk_id": f"{doc_id}_c{len(chunks)}",
+            "chunk_id": f"{doc_id}_c{idx}",
             "doc_id": doc_id,
             "title": clean_name.replace("_", " ").title(),
             "is_current": True,
-            "chunk_text": full_text[i:i+chunk_size]
+            "chunk_text": chunk_text
         })
 
+    # 4. التخزين الدائم في ChromaDB Collection
     try:
         client = chromadb.PersistentClient(path=CHROMA_DB_DIR)
         collection = client.get_or_create_collection(name="lexgo_docs")
+        
         collection.add(
             ids=[c["chunk_id"] for c in chunks],
             documents=[c["chunk_text"] for c in chunks],
-            metadatas=[{"doc_id": c["doc_id"], "title": c["title"], "is_current": True, "chunk_text": c["chunk_text"]} for c in chunks]
+            metadatas=[{
+                "doc_id": c["doc_id"], 
+                "title": c["title"], 
+                "is_current": True, 
+                "chunk_text": c["chunk_text"]
+            } for c in chunks]
         )
-        return True, f"Successfully indexed {len(chunks)} chunks!"
+        return True, f"تم حفظ الملف وإضافة {len(chunks)} Chunks بنجاح!"
     except Exception as e:
         return False, f"Chroma Error: {str(e)}"
+
+def delete_document(file_name):
+    """حذف الملف من المجلد المحلي وقاعدة بيانات ChromaDB"""
+    file_path = os.path.join(DATA_DIR, file_name)
+    if os.path.exists(file_path):
+        os.remove(file_path)
+    
+    clean_name = os.path.splitext(file_name)[0]
+    doc_id = f"doc_{clean_name.lower().replace(' ', '_')}"
+    
+    try:
+        client = chromadb.PersistentClient(path=CHROMA_DB_DIR)
+        collection = client.get_or_create_collection(name="lexgo_docs")
+        collection.delete(where={"doc_id": doc_id})
+    except Exception as e:
+        print(f"Error deleting from ChromaDB: {e}")
 
 # ==============================================================================
 # 4. SIDEBAR (DOCUMENT MANAGEMENT)
@@ -188,35 +218,40 @@ with st.sidebar:
     st.divider()
 
     # Upload Section
-    st.markdown("### 📄 Document Ingestion")
+    st.markdown("### 📄 Upload & Train New Document")
     uploaded_file = st.file_uploader("Upload legal document", type=["pdf", "docx", "doc"])
+    
     if uploaded_file is not None:
-        if "indexed_files" not in st.session_state:
-            st.session_state.indexed_files = set()
-
-        if uploaded_file.name not in st.session_state.indexed_files:
-            with st.spinner("Processing & Indexing..."):
+        saved_files = os.listdir(DATA_DIR) if os.path.exists(DATA_DIR) else []
+        if uploaded_file.name not in saved_files:
+            with st.spinner("جاري حفظ الملف وتحديث البيانات..."):
                 success, msg = process_and_index_file(uploaded_file)
                 if success:
-                    st.session_state.indexed_files.add(uploaded_file.name)
-                    st.success(f"✅ {uploaded_file.name}")
+                    st.success(f"✅ تم حفظ {uploaded_file.name} بنجاح!")
                     st.rerun()
                 else:
                     st.error(msg)
+        else:
+            st.info("💡 هذا الملف موجود بالفعل في قاعدة البيانات.")
 
     st.divider()
 
-    # Active Documents List
+    # Active Documents List (الملفات المحفوظة)
     saved_files = os.listdir(DATA_DIR) if os.path.exists(DATA_DIR) else []
-    st.markdown(f"### 📂 Active Documents ({len(saved_files)})")
+    st.markdown(f"### 📂 Permanent Documents ({len(saved_files)})")
+    
     for file in saved_files:
         col_f1, col_f2 = st.columns([0.8, 0.2])
         col_f1.caption(f"• `{file}`")
+        if col_f2.button("🗑️", key=f"del_{file}", help=f"حذف {file}"):
+            delete_document(file)
+            st.toast(f"تم حذف {file}", icon="🗑️")
+            st.rerun()
 
     st.divider()
     
     # Clear Session
-    if st.button("🗑️ Clear Chat History"):
+    if st.button("🧹 Clear Chat History", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
 
@@ -267,8 +302,8 @@ if prompt := st.chat_input("Ask a legal or policy question..."):
             if sources:
                 with st.expander("📌 Retrieved Sources & Context"):
                     for idx, s in enumerate(sources, 1):
-                        st.markdown(f"**[{idx}] {s['title']}**")
-                        st.caption(s['chunk_text'])
+                        st.markdown(f"**[{idx}] {s.get('title', 'Document')}**")
+                        st.caption(s.get('chunk_text', ''))
                         if idx < len(sources):
                             st.divider()
 
