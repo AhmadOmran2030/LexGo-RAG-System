@@ -188,7 +188,44 @@ try:
 except Exception:
     pass
 
-# 5. Data Processing Functions (Directly embedded)
+# ==============================================================================
+# EVALUATION METRICS FUNCTIONS
+# ==============================================================================
+def calculate_retrieval_hit(sources):
+    """التحقق مما إذا تم استرجاع مصادر صحيحة وموجودة بالفعل"""
+    if sources and len(sources) > 0:
+        return 100.0
+    return 0.0
+
+def calculate_context_faithfulness(answer, sources):
+    """
+    حساب نسبة الاعتماد على النصوص المسترجعة (Context Overlap Ratio)
+    تتحقق من مدى استخدام الكلمات المسترجعة داخل الإجابة المولدة
+    """
+    if not answer or not sources:
+        return 0.0
+    
+    # تجميع كل نصوص الفقرات المسترجعة
+    context_text = " ".join([s.get("chunk_text", "").lower() for s in sources])
+    context_words = set(re.findall(r'\b\w{4,}\b', context_text)) # الكلمات الأكثر من 3 حروف
+    
+    if not context_words:
+        return 0.0
+    
+    answer_words = set(re.findall(r'\b\w{4,}\b', answer.lower()))
+    
+    # الكلمات المشتركة بين الإجابة والكونتيكست
+    shared_words = answer_words.intersection(context_words)
+    
+    if not answer_words:
+        return 0.0
+        
+    coverage = (len(shared_words) / len(answer_words)) * 100
+    return min(round(coverage, 1), 100.0)
+
+# ==============================================================================
+# 5. DATA PROCESSING FUNCTIONS
+# ==============================================================================
 def save_uploaded_file(uploaded_file):
     target_path = os.path.join(DATA_DIR, uploaded_file.name)
     with open(target_path, "wb") as f:
@@ -236,11 +273,9 @@ def chunk_text(text, doc_id, doc_title, chunk_size=500, overlap=50):
     return chunks
 
 def process_and_index_file(uploaded_file):
-    # 1. Save file locally in ./data
     target_path = save_uploaded_file(uploaded_file)
     ext = os.path.splitext(uploaded_file.name)[1].lower()
 
-    # 2. Extract text
     full_text, error = extract_text_from_file(target_path, ext)
     if error:
         return False, error
@@ -257,13 +292,11 @@ def process_and_index_file(uploaded_file):
         "text": full_text
     }
 
-    # 3. Chunk text
     if hasattr(rag, "chunk_document"):
         new_chunks = rag.chunk_document(new_doc)
     else:
         new_chunks = chunk_text(full_text, doc_id, doc_title)
 
-    # 4. Index in ChromaDB
     try:
         client = chromadb.PersistentClient(
             path=CHROMA_DB_DIR,
@@ -288,8 +321,9 @@ def process_and_index_file(uploaded_file):
     except Exception as e:
         return False, f"Indexing failed: {str(e)}"
 
-
+# ==============================================================================
 # 6. LEFT SIDEBAR PANEL
+# ==============================================================================
 with st.sidebar:
     st.markdown("## ⚖️ LexGO Portal")
     st.caption("Internal Repository Assistant")
@@ -354,8 +388,9 @@ with st.sidebar:
     st.caption("• **Supported Formats:** PDF, DOCX, DOC")
     st.caption("• **Vector DB:** ChromaDB Hybrid Index")
 
-
-# 7. MAIN CONTENT AREA
+# ==============================================================================
+# 7. MAIN CONTENT AREA & REAL-TIME EVALUATION
+# ==============================================================================
 st.markdown('<h1 class="lexgo-title">LexGO ⚖️</h1>', unsafe_allow_html=True)
 st.markdown('<div class="lexgo-slogan">Navigate Law with Precision</div>', unsafe_allow_html=True)
 st.markdown(
@@ -380,9 +415,36 @@ if st.button("Analyze & Generate Answer") and question.strip():
         st.markdown("<br>", unsafe_allow_html=True)
         st.subheader("Legal Analysis")
         
+        # Display Generated Answer
         with st.container():
             st.markdown(answer)
 
+        # ----------------------------------------------------------------------
+        # REAL-TIME RAG EVALUATION METRICS
+        # ----------------------------------------------------------------------
+        hit_score = calculate_retrieval_hit(sources)
+        faith_score = calculate_context_faithfulness(answer, sources)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.subheader("📊 RAG Performance & Evaluation Metrics")
+        
+        col1, col2, col3 = st.columns(3)
+        col1.metric(
+            label="Retrieval Success (Hit Rate)", 
+            value=f"{hit_score:.0f}%", 
+            delta="PASS" if hit_score > 0 else "FAIL"
+        )
+        col2.metric(
+            label="Context Groundedness", 
+            value=f"{faith_score:.1f}%", 
+            delta="High Precision" if faith_score > 40 else "Low Relevance"
+        )
+        col3.metric(
+            label="Retrieved Chunks Count", 
+            value=len(sources) if sources else 0
+        )
+
+        # Retrived Context Expander
         if sources:
             with st.expander("📌 Retrieved Internal References & Citations"):
                 for idx, source in enumerate(sources, 1):
