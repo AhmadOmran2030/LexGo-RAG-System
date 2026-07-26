@@ -1,10 +1,10 @@
 import base64
 import os
+import sys
 from importlib import import_module
 import streamlit as st
-
-# استدعاء دالة المعالجة وحفظ الملفات من data_loader
-from data_loader import process_and_index_file, DATA_DIR
+import chromadb
+from chromadb.config import Settings
 
 # 1. Page Configuration
 st.set_page_config(
@@ -14,7 +14,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. Custom CSS
+# 2. Setup Directories
+DATA_DIR = "./data"
+CHROMA_DB_DIR = "./chroma_db"
+os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(CHROMA_DB_DIR, exist_ok=True)
+
+# 3. Custom CSS
 st.markdown(
     """
     <style>
@@ -141,7 +147,6 @@ st.markdown(
         width: 100%;
         background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
         color: #ffffff !important;
-        font-weight: 600 !important;
         font-size: 1rem !important;
         border: 1px solid rgba(255, 255, 255, 0.1) !important;
         border-radius: 12px !important;
@@ -166,18 +171,13 @@ st.markdown(
         margin-top: 1.5rem !important;
     }
 
-    .stCheckbox label {
-        color: #cbd5e1 !important;
-        font-size: 0.88rem !important;
-    }
-
     footer {visibility: hidden;}
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# 3. Import RAG Modules
+# 4. Import RAG Modules
 rag = import_module("07_prompting")
 docs_module = import_module("01_documents")
 
@@ -188,13 +188,113 @@ try:
 except Exception:
     pass
 
-# 4. LEFT SIDEBAR PANEL
+# 5. Data Processing Functions (Directly embedded)
+def save_uploaded_file(uploaded_file):
+    target_path = os.path.join(DATA_DIR, uploaded_file.name)
+    with open(target_path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+    return target_path
+
+def extract_text_from_file(target_path, file_extension):
+    full_text = ""
+    try:
+        if file_extension == ".pdf":
+            from pypdf import PdfReader
+            reader = PdfReader(target_path)
+            for page in reader.pages:
+                text = page.extract_text()
+                if text:
+                    full_text += text + "\n"
+        elif file_extension in [".docx", ".doc"]:
+            import docx
+            doc = docx.Document(target_path)
+            full_text = "\n".join([p.text for p in doc.paragraphs if p.text])
+    except Exception as err:
+        return None, f"Error reading file: {str(err)}"
+
+    if not full_text.strip():
+        return None, "File contains no readable text."
+
+    return full_text.strip(), None
+
+def chunk_text(text, doc_id, doc_title, chunk_size=500, overlap=50):
+    chunks = []
+    start = 0
+    idx = 0
+    while start < len(text):
+        end = start + chunk_size
+        chunk_str = text[start:end]
+        chunks.append({
+            "chunk_id": f"{doc_id}_c{idx}",
+            "doc_id": doc_id,
+            "title": doc_title,
+            "is_current": True,
+            "chunk_text": chunk_str
+        })
+        start += chunk_size - overlap
+        idx += 1
+    return chunks
+
+def process_and_index_file(uploaded_file):
+    # 1. Save file locally in ./data
+    target_path = save_uploaded_file(uploaded_file)
+    ext = os.path.splitext(uploaded_file.name)[1].lower()
+
+    # 2. Extract text
+    full_text, error = extract_text_from_file(target_path, ext)
+    if error:
+        return False, error
+
+    clean_name = os.path.splitext(uploaded_file.name)[0]
+    prefix = "pdf_" if ext == ".pdf" else "docx_"
+    doc_id = f"{prefix}{clean_name.lower().replace(' ', '_')}"
+    doc_title = clean_name.replace("_", " ").title()
+
+    new_doc = {
+        "id": doc_id,
+        "title": doc_title,
+        "is_current": True,
+        "text": full_text
+    }
+
+    # 3. Chunk text
+    if hasattr(rag, "chunk_document"):
+        new_chunks = rag.chunk_document(new_doc)
+    else:
+        new_chunks = chunk_text(full_text, doc_id, doc_title)
+
+    # 4. Index in ChromaDB
+    try:
+        client = chromadb.PersistentClient(
+            path=CHROMA_DB_DIR,
+            settings=Settings(anonymized_telemetry=False, allow_reset=True)
+        )
+        collection = client.get_or_create_collection(name="lexgo_docs")
+
+        ids = [c["chunk_id"] for c in new_chunks]
+        documents = [c["chunk_text"] for c in new_chunks]
+        metadatas = [
+            {
+                "doc_id": c["doc_id"],
+                "title": c["title"],
+                "is_current": c["is_current"],
+                "chunk_text": c["chunk_text"]
+            }
+            for c in new_chunks
+        ]
+
+        collection.add(ids=ids, documents=documents, metadatas=metadatas)
+        return True, f"Saved to `./data` & indexed {len(new_chunks)} chunks!"
+    except Exception as e:
+        return False, f"Indexing failed: {str(e)}"
+
+
+# 6. LEFT SIDEBAR PANEL
 with st.sidebar:
     st.markdown("## ⚖️ LexGO Portal")
     st.caption("Internal Repository Assistant")
     st.divider()
 
-    # 📄 Upload & Save Section
     st.markdown("### 📄 Document Ingestion")
     uploaded_file = st.file_uploader(
         "Upload legal document (PDF or Word)", 
@@ -205,10 +305,9 @@ with st.sidebar:
         if "indexed_files" not in st.session_state:
             st.session_state.indexed_files = set()
 
-        # التأكد من الحفظ والتفهرس مرة واحدة فقط لكل ملف
         if uploaded_file.name not in st.session_state.indexed_files:
             with st.spinner("Saving to `./data` & Training Vector DB..."):
-                success, msg = process_and_index_file(uploaded_file, rag_module=rag)
+                success, msg = process_and_index_file(uploaded_file)
 
                 if success:
                     st.session_state.indexed_files.add(uploaded_file.name)
@@ -218,12 +317,11 @@ with st.sidebar:
                 else:
                     st.error(f"⚠️ {msg}")
         else:
-            st.info(f"🟢 `{uploaded_file.name}` saved in `./data` & fully indexed.")
+            st.info(f"🟢 `{uploaded_file.name}` saved in `./data` & indexed.")
 
     st.divider()
 
     st.markdown("### 💡 Suggested Queries")
-    
     def set_query(text):
         st.session_state["user_query"] = text
 
@@ -250,16 +348,14 @@ with st.sidebar:
 
     st.divider()
 
-    # عرض عدد الملفات المحفوظة
     saved_files = os.listdir(DATA_DIR) if os.path.exists(DATA_DIR) else []
-    
     st.markdown("### ℹ️ Repository Info")
     st.caption(f"• **Saved Files in `./data`:** {len(saved_files)}")
     st.caption("• **Supported Formats:** PDF, DOCX, DOC")
     st.caption("• **Vector DB:** ChromaDB Hybrid Index")
 
 
-# 5. MAIN CONTENT AREA
+# 7. MAIN CONTENT AREA
 st.markdown('<h1 class="lexgo-title">LexGO ⚖️</h1>', unsafe_allow_html=True)
 st.markdown('<div class="lexgo-slogan">Navigate Law with Precision</div>', unsafe_allow_html=True)
 st.markdown(
@@ -267,7 +363,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Input Section
 question = st.text_area(
     "Legal Query / Policy Search", 
     value=st.session_state.get("user_query", ""),
@@ -275,12 +370,10 @@ question = st.text_area(
     height=130
 )
 
-# Action & Execution
 if st.button("Analyze & Generate Answer") and question.strip():
     with st.spinner("Analyzing legal repository and verifying policy compliance..."):
         answer, sources = rag.answer_question(question)
         
-        # Filter archived sources if unchecked
         if not include_archived and sources:
             sources = [s for s in sources if s.get("is_current", True)]
 
