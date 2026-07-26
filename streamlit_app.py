@@ -1,5 +1,6 @@
 import base64
 import os
+import re  # <-- أضفناه هنا لتصحيح الـ NameError
 import sys
 from importlib import import_module
 import streamlit as st
