@@ -6,7 +6,6 @@ from importlib import import_module
 import streamlit as st
 import chromadb
 from chromadb.config import Settings
-import toml
 
 # ==============================================================================
 # 1. PAGE CONFIGURATION
@@ -114,57 +113,9 @@ rag = import_module("07_prompting")
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# تهيئة المفتاح من Secrets أو بيئة العمل
-if "active_api_key" not in st.session_state:
-    st.session_state.active_api_key = st.secrets.get("OPENROUTER_API_KEY", os.getenv("OPENROUTER_API_KEY", ""))
-
 # ==============================================================================
 # 3. HELPER & EVALUATION FUNCTIONS
 # ==============================================================================
-def update_api_key(new_key: str):
-    """
-    التحقق من المفتاح وتحديثه داخل st.secrets والبيئة الحالية وملف secrets.toml
-    """
-    clean_key = new_key.strip()
-    if not clean_key:
-        return "empty", "الرجاء إدخال API Key صالح."
-
-    # 1. جلب المفتاح الحالي للمقارنة
-    current_key = st.session_state.active_api_key
-
-    # 2. التحقق مما إذا كان المفتاح مُستخدم بالفعل
-    if clean_key == current_key:
-        return "already_used", "هذا الـ API Key مستخدم بالفعل حالياً!"
-
-    # 3. تحديث الجلسة والبيئة الحالية فوراً
-    st.session_state.active_api_key = clean_key
-    os.environ["OPENROUTER_API_KEY"] = clean_key
-    os.environ["OPENAI_API_KEY"] = clean_key
-
-    # 4. حفظ وتعديل المفتاح في ملف secrets الخاص بـ Streamlit (.streamlit/secrets.toml)
-    secrets_dir = ".streamlit"
-    secrets_file = os.path.join(secrets_dir, "secrets.toml")
-    
-    try:
-        os.makedirs(secrets_dir, exist_ok=True)
-        secrets_data = {}
-        
-        if os.path.exists(secrets_file):
-            with open(secrets_file, "r", encoding="utf-8") as f:
-                secrets_data = toml.load(f)
-                
-        secrets_data["OPENROUTER_API_KEY"] = clean_key
-        
-        with open(secrets_file, "w", encoding="utf-8") as f:
-            toml.dump(secrets_data, f)
-
-        st.secrets["OPENROUTER_API_KEY"] = clean_key
-
-        return "success", "تم استخدام الـ API Key الجديد وتعديله في إعدادات Secrets بنجاح! 🎉"
-    except Exception as e:
-        return "error", f"تم استخدام المفتاح في الجلسة الحالية، ولكن تعذر تعديله في ملف Secrets: {str(e)}"
-
-
 def calculate_retrieval_hit(sources):
     return 100.0 if sources and len(sources) > 0 else 0.0
 
@@ -229,41 +180,11 @@ def process_and_index_file(uploaded_file):
         return False, f"Chroma Error: {str(e)}"
 
 # ==============================================================================
-# 4. SIDEBAR (ADMIN SETTINGS & DOCUMENT MANAGEMENT)
+# 4. SIDEBAR (DOCUMENT MANAGEMENT)
 # ==============================================================================
 with st.sidebar:
     st.markdown("## ⚖️ LexGO Portal")
     st.caption("Internal Legal Repository Assistant")
-    st.divider()
-
-    # --- ADMIN CONFIGURATION PANEL ---
-    with st.expander("🔑 Admin API Configuration", expanded=False):
-        st.markdown("**System API Key Management**")
-        
-        current_key = st.session_state.active_api_key
-        if current_key:
-            masked_key = current_key[:6] + "..." + current_key[-4:] if len(current_key) > 10 else "Saved"
-            st.caption(f"Active Key: `{masked_key}`")
-        else:
-            st.warning("⚠️ No Active API Key Set!")
-
-        new_api_input = st.text_input(
-            "Enter API Key", 
-            type="password", 
-            placeholder="sk-or-v1-...", 
-            help="Insert your OpenRouter or OpenAI key"
-        )
-        
-        if st.button("🔄 Apply API Key"):
-            status, msg = update_api_key(new_api_input)
-            if status == "already_used":
-                st.info(f"ℹ️ {msg}")
-            elif status == "success":
-                st.success(f"✅ {msg}")
-                st.rerun()
-            elif status in ["empty", "error"]:
-                st.error(f"⚠️ {msg}")
-
     st.divider()
 
     # Upload Section
@@ -326,12 +247,8 @@ if prompt := st.chat_input("Ask a legal or policy question..."):
             try:
                 answer, sources = rag.answer_question(prompt)
             except Exception as e:
-                if "429" in str(e):
-                    answer = "⚠️ **Rate Limit Exceeded:** انتهت الطلبات المتاحة للـ API Key الحالي. يرجى إدخال API Key جديد من القائمة الجانبية (Admin API Configuration)."
-                    sources = []
-                else:
-                    answer = f"⚠️ **Error:** {str(e)}"
-                    sources = []
+                answer = f"⚠️ **Error:** {str(e)}"
+                sources = []
             
             # Display Answer
             st.markdown(answer)
