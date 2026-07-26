@@ -6,7 +6,7 @@ Document repository containing corporate policies and dynamic PDF files from ./d
 import os
 from pypdf import PdfReader
 
-# Base Corporate & M&A Policies
+# 1. Base Corporate Governance & M&A Policies
 base_documents = [
     {
         "id": "board_independence_policy",
@@ -79,7 +79,7 @@ base_documents = [
     },
 ]
 
-# IP & Real Estate Policies
+# 2. Intellectual Property & Real Estate Law Policies
 property_and_ip_documents = [
     {
         "id": "trade_secret_protection_policy",
@@ -360,8 +360,9 @@ property_and_ip_documents = [
 ]
 
 
+# 3. Dynamic PDF File Ingestion
 def load_pdf_documents(folder_path: str = "./data") -> list:
-    """Scans folder_path for PDFs, extracts text page-by-page, and returns formatted document dicts."""
+    """Scans the ./data directory for PDF files and converts them to document dictionaries."""
     pdf_docs = []
 
     if not os.path.exists(folder_path):
@@ -397,10 +398,7 @@ def load_pdf_documents(folder_path: str = "./data") -> list:
 
 
 def get_documents(data_folder: str = "./data") -> list:
-    """
-    Main accessor function: Combines built-in policy lists with dynamic PDFs.
-    Import and call this in app.py or indexing scripts.
-    """
+    """Main accessor function: Combines built-in policy lists with dynamic PDFs."""
     all_docs = []
     all_docs.extend(base_documents)
     all_docs.extend(property_and_ip_documents)
@@ -408,10 +406,5 @@ def get_documents(data_folder: str = "./data") -> list:
     return all_docs
 
 
-# Allow direct execution testing: python 01_documents.py
-if __name__ == "__main__":
-    docs = get_documents()
-    print(f"Successfully loaded {len(docs)} total documents.")
-    pdf_count = sum(1 for d in docs if d["id"].startswith("pdf_"))
-    print(f"  - Hardcoded documents: {len(docs) - pdf_count}")
-    print(f"  - PDF documents loaded: {pdf_count}")
+# Expose top-level documents variable for direct imports (e.g. 03_chunking.py)
+documents = get_documents()
