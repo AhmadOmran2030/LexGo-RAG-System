@@ -1,3 +1,12 @@
+"""
+01_documents.py
+Main document repository combining internal legal policies and local PDF files from ./data/
+"""
+
+import os
+from pypdf import PdfReader
+
+# 1. Base Corporate Governance & M&A Policies
 documents = [
     {
         "id": "board_independence_policy",
@@ -69,9 +78,11 @@ documents = [
         ),
     },
 ]
+
+# 2. Intellectual Property & Real Estate Law Policies
 property_and_ip_documents = [
     # ---------------------------------------------------------
-    # 1. Intellectual Property Law (IP Expansion)
+    # Intellectual Property Law (IP Expansion)
     # ---------------------------------------------------------
     {
         "id": "trade_secret_protection_policy",
@@ -215,7 +226,7 @@ property_and_ip_documents = [
     },
 
     # ---------------------------------------------------------
-    # 2. Property & Real Estate Law
+    # Property & Real Estate Law
     # ---------------------------------------------------------
     {
         "id": "commercial_lease_review_policy",
@@ -355,4 +366,52 @@ property_and_ip_documents = [
     },
 ]
 
+# Merge the Python lists
 documents.extend(property_and_ip_documents)
+
+
+# 3. Dynamic PDF File Ingestion
+def load_pdf_documents(folder_path: str = "./data") -> list:
+    """Scans the ./data directory for PDF files and converts them to document dictionaries."""
+    pdf_docs = []
+
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path, exist_ok=True)
+        return pdf_docs
+
+    for file_name in os.listdir(folder_path):
+        if file_name.lower().endswith(".pdf"):
+            file_path = os.path.join(folder_path, file_name)
+            try:
+                reader = PdfReader(file_path)
+                full_text = ""
+                for page in reader.pages:
+                    extracted = page.extract_text()
+                    if extracted:
+                        full_text += extracted + "\n"
+
+                if full_text.strip():
+                    clean_name = os.path.splitext(file_name)[0]
+                    doc_id = f"pdf_{clean_name.lower().replace(' ', '_')}"
+                    doc_title = clean_name.replace("_", " ").title()
+
+                    pdf_docs.append({
+                        "id": doc_id,
+                        "title": doc_title,
+                        "is_current": True,  # Default status for new PDFs
+                        "text": full_text.strip(),
+                    })
+            except Exception as e:
+                print(f"Error reading PDF '{file_name}': {e}")
+
+    return pdf_docs
+
+
+# Load PDFs from ./data/ and append to the main documents array
+pdf_documents = load_pdf_documents(folder_path="./data")
+documents.extend(pdf_documents)
+
+
+def get_documents() -> list:
+    """Accessor function for downstream modules (e.g., chunking, vector indexing)."""
+    return documents
