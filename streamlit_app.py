@@ -187,9 +187,9 @@ rag = import_module("07_prompting")
 docs_module = import_module("01_documents")
 
 try:
-    if not rag.OPENROUTER_API_KEY:
+    if not getattr(rag, "OPENROUTER_API_KEY", None):
         rag.OPENROUTER_API_KEY = st.secrets.get("OPENROUTER_API_KEY", "")
-    rag.OPENROUTER_MODEL = st.secrets.get("OPENROUTER_MODEL", rag.OPENROUTER_MODEL)
+    rag.OPENROUTER_MODEL = st.secrets.get("OPENROUTER_MODEL", getattr(rag, "OPENROUTER_MODEL", ""))
 except Exception:
     pass
 
@@ -260,16 +260,25 @@ def process_and_index_file(uploaded_file, target_path):
 
         # 3. Access Chroma Collection Instance
         collection_obj = None
-        for attr in ["collection", "vector_store", "chroma_collection"]:
+
+        # Check in rag module
+        for attr in ["collection", "vector_store", "chroma_collection", "db"]:
             if hasattr(rag, attr):
                 collection_obj = getattr(rag, attr)
                 break
-        
-        if collection_obj is None and hasattr(docs_module, "collection"):
-            collection_obj = docs_module.collection
 
+        # Check in docs_module
         if collection_obj is None:
-            return False, "Could not locate ChromaDB collection instance."
+            for attr in ["collection", "vector_store", "chroma_collection", "db"]:
+                if hasattr(docs_module, attr):
+                    collection_obj = getattr(docs_module, attr)
+                    break
+
+        # Fallback: Create direct ChromaDB Client connection
+        if collection_obj is None:
+            import chromadb
+            client = chromadb.PersistentClient(path="./chroma_db")
+            collection_obj = client.get_or_create_collection(name="lexgo_docs")
 
         # 4. Direct Insertion into Vector DB
         ids = [c["chunk_id"] for c in new_chunks]
