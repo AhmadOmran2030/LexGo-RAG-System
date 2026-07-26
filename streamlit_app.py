@@ -113,9 +113,50 @@ rag = import_module("07_prompting")
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# تهيئة الـ API Key من البيئة المباشرة
+if "active_api_key" not in st.session_state:
+    st.session_state.active_api_key = os.getenv("OPENROUTER_API_KEY", "")
+
 # ==============================================================================
 # 3. HELPER & EVALUATION FUNCTIONS
 # ==============================================================================
+def update_api_key(new_key: str):
+    """تحديث مفتاح API تلقائياً في الجلسة والبيئة وملف .env"""
+    clean_key = new_key.strip()
+    if clean_key:
+        # 1. تحديث المتغير في Session State
+        st.session_state.active_api_key = clean_key
+        
+        # 2. تحديث متغيرات البيئة تلقائياً
+        os.environ["OPENROUTER_API_KEY"] = clean_key
+        os.environ["OPENAI_API_KEY"] = clean_key
+        
+        # 3. كتابة/تحديث المفتاح داخل ملف .env
+        env_path = ".env"
+        lines = []
+        if os.path.exists(env_path):
+            with open(env_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+        
+        key_found = False
+        new_lines = []
+        for line in lines:
+            if line.startswith("OPENROUTER_API_KEY="):
+                new_lines.append(f"OPENROUTER_API_KEY={clean_key}\n")
+                key_found = True
+            else:
+                new_lines.append(line)
+        
+        if not key_found:
+            new_lines.append(f"\nOPENROUTER_API_KEY={clean_key}\n")
+            
+        with open(env_path, "w", encoding="utf-8") as f:
+            f.writelines(new_lines)
+            
+        return True
+    return False
+
+
 def calculate_retrieval_hit(sources):
     return 100.0 if sources and len(sources) > 0 else 0.0
 
@@ -180,11 +221,40 @@ def process_and_index_file(uploaded_file):
         return False, f"Chroma Error: {str(e)}"
 
 # ==============================================================================
-# 4. SIDEBAR (DOCUMENT MANAGEMENT & QUICK CONTROLS)
+# 4. SIDEBAR (ADMIN SETTINGS & DOCUMENT MANAGEMENT)
 # ==============================================================================
 with st.sidebar:
     st.markdown("## ⚖️ LexGO Portal")
     st.caption("Internal Legal Repository Assistant")
+    st.divider()
+
+    # --- ADMIN CONFIGURATION PANEL ---
+    with st.expander("🔑 Admin API Configuration", expanded=False):
+        st.markdown("**System API Key Management**")
+        
+        # إظهار حالة المفتاح الحالي
+        current_key = st.session_state.active_api_key
+        if current_key:
+            masked_key = current_key[:6] + "..." + current_key[-4:] if len(current_key) > 10 else "Saved"
+            st.caption(f"Active Key: `{masked_key}`")
+        else:
+            st.warning("⚠️ No Active API Key Set!")
+
+        new_api_input = st.text_input(
+            "Enter New API Key", 
+            type="password", 
+            placeholder="sk-or-v1-...", 
+            help="Insert your OpenRouter or OpenAI key"
+        )
+        
+        if st.button("🔄 Update API Key"):
+            if new_api_input:
+                if update_api_key(new_api_input):
+                    st.success("✅ API Key updated seamlessly!")
+                    st.rerun()
+            else:
+                st.error("Please enter a valid key.")
+
     st.divider()
 
     # Upload Section
@@ -244,7 +314,15 @@ if prompt := st.chat_input("Ask a legal or policy question..."):
     # Generate Response
     with st.chat_message("assistant"):
         with st.spinner("Analyzing repository & verifying compliance..."):
-            answer, sources = rag.answer_question(prompt)
+            try:
+                answer, sources = rag.answer_question(prompt)
+            except Exception as e:
+                if "429" in str(e):
+                    answer = "⚠️ **Rate Limit Exceeded:** انتهت حليقة الطلبات المتاحة للـ API Key الحالي. يرجى إدخال API Key جديد من القائمة الجانبية (Admin API Configuration)."
+                    sources = []
+                else:
+                    answer = f"⚠️ **Error:** {str(e)}"
+                    sources = []
             
             # Display Answer
             st.markdown(answer)
@@ -256,7 +334,7 @@ if prompt := st.chat_input("Ask a legal or policy question..."):
             # Confidence Badge
             if faith_score >= 60:
                 st.markdown('<span class="confidence-badge-high">🟢 High Confidence Match</span>', unsafe_allow_html=True)
-            else:
+            elif sources:
                 st.markdown('<span class="confidence-badge-medium">🟡 Moderate Confidence - Review Recommended</span>', unsafe_allow_html=True)
             
             # Expander for Sources
