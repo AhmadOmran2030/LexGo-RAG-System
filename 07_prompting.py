@@ -5,74 +5,105 @@ from typing import Tuple, List, Dict, Any
 from dotenv import load_dotenv
 from openai import OpenAI
 
+
 # ==============================================================================
 # Imports
 # ==============================================================================
-build_context = import_module("06_retrieve_context").build_context
+build_context = import_module(
+    "06_retrieve_context"
+).build_context
+
 
 # ==============================================================================
 # Configuration
 # ==============================================================================
 load_dotenv()
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_API_KEY = os.getenv(
+    "OPENROUTER_API_KEY"
+)
 
 OPENROUTER_MODEL = os.getenv(
     "OPENROUTER_MODEL",
     "meta-llama/llama-3.3-70b-instruct:free",
 )
 
+
+# ==============================================================================
+# System Prompt
+# ==============================================================================
 SYSTEM_PROMPT = """
-You are a professional corporate policy assistant.
+You are a professional legal policy assistant.
 
 Rules:
 
 - Answer ONLY using the provided context.
-- Never use outside knowledge.
-- If the answer cannot be found in the context, reply exactly:
+- Never use external knowledge.
+- If the answer is not available in the retrieved documents, reply:
 
 "I could not find relevant information in the provided policy documents."
 
-- Prefer CURRENT policies over OUTDATED policies.
-- Mention when a source is outdated.
-- Cite sources using [Source X].
+- Prefer CURRENT documents over OUTDATED documents.
+- Mention if a source is outdated.
+- Always cite sources using [Source X].
 - Do not make assumptions.
-- Keep answers concise, factual, and professional.
+- Keep responses concise, professional, and factual.
 """
 
 
 # ==============================================================================
 # Prompt Builder
 # ==============================================================================
-def build_prompt(question: str, context: str) -> str:
-    """Build the user prompt."""
+def build_prompt(
+    question: str,
+    context: str
+) -> str:
 
     return f"""
 Question:
+
 {question}
 
-Context:
+
+Retrieved Policy Context:
+
 {context}
 """
 
 
 # ==============================================================================
-# OpenRouter API
+# OpenRouter Request
 # ==============================================================================
-def ask_openrouter(prompt: str) -> str:
+def ask_openrouter(
+    prompt: str
+) -> str:
+
 
     if not OPENROUTER_API_KEY:
-        return "Error: Missing OPENROUTER_API_KEY environment variable."
+
+        return (
+            "Error: Missing OPENROUTER_API_KEY environment variable."
+        )
+
 
     client = OpenAI(
+
         base_url="https://openrouter.ai/api/v1",
+
         api_key=OPENROUTER_API_KEY,
+
         timeout=60,
+
         default_headers={
-            "HTTP-Referer": "https://localhost",
-            "X-Title": "Legal Policy RAG Assistant",
+
+            "HTTP-Referer":
+                "https://localhost",
+
+            "X-Title":
+                "LexGO Legal RAG Assistant",
         },
     )
+
 
     try:
 
@@ -80,107 +111,150 @@ def ask_openrouter(prompt: str) -> str:
 
             model=OPENROUTER_MODEL,
 
+
             messages=[
+
                 {
                     "role": "system",
                     "content": SYSTEM_PROMPT,
                 },
+
+
                 {
                     "role": "user",
                     "content": prompt,
-                },
+                }
+
             ],
 
+
             temperature=0,
+
+
             max_tokens=700,
+
         )
+
 
         if (
             response
             and response.choices
             and len(response.choices) > 0
         ):
+
             return (
-                response.choices[0].message.content
-                or "Model returned an empty response."
+                response
+                .choices[0]
+                .message
+                .content
+                or "Empty response from model."
             )
+
 
         return "OpenRouter returned an empty response."
 
+
     except Exception as error:
 
-        status_code = getattr(error, "status_code", "unknown")
-        message = getattr(error, "message", str(error))
+        status_code = getattr(
+            error,
+            "status_code",
+            "unknown"
+        )
 
-        return f"OpenRouter Error ({status_code}): {message}"
+        message = getattr(
+            error,
+            "message",
+            str(error)
+        )
+
+
+        return (
+            f"OpenRouter Error ({status_code}): {message}"
+        )
+
 
 
 # ==============================================================================
-# Main RAG Function
+# Main RAG Pipeline
 # ==============================================================================
 def answer_question(
     question: str,
 ) -> Tuple[str, List[Dict[str, Any]]]:
 
+
     if not question.strip():
-        return "Please enter a valid question.", []
 
-
-    # Retrieve context + sources
-    context, sources = build_context(question)
-
-
-    # No relevant documents found
-    if not sources:
         return (
+            "Please enter a valid question.",
+            []
+        )
+
+
+    # Retrieve context
+    context, sources = build_context(
+        question
+    )
+
+
+    # No retrieval result
+    if not sources:
+
+        return (
+
             "I could not find relevant information in the provided policy documents.",
-            [],
+
+            []
+
         )
 
 
-    # ---------------------------------------------------------
-    # Add retrieval analytics metadata
-    # ---------------------------------------------------------
-
-    enriched_sources = []
-
-    for source in sources:
-
-        enriched_sources.append(
-            {
-                **source,
-
-                # Ensure values exist
-                "similarity_score":
-                    source.get(
-                        "similarity_score",
-                        0
-                    ),
-
-                "hybrid_score":
-                    source.get(
-                        "hybrid_score",
-                        0
-                    ),
-
-                "bm25_score":
-                    source.get(
-                        "bm25_score",
-                        0
-                    ),
-            }
-        )
-
-
-    # Build final prompt
+    # Build prompt
     prompt = build_prompt(
+
         question,
+
         context
+
     )
 
 
     # Generate answer
-    answer = ask_openrouter(prompt)
+    answer = ask_openrouter(
+        prompt
+    )
 
 
-    return answer, enriched_sources
+    # ==========================================================================
+    # Add Retrieval Analytics For Dashboard
+    # ==========================================================================
+
+    for source in sources:
+
+
+        source["retrieval_metrics"] = {
+
+            "semantic_similarity":
+                source.get(
+                    "similarity_score",
+                    0
+                ),
+
+
+            "hybrid_score":
+                source.get(
+                    "hybrid_score",
+                    0
+                ),
+
+
+            "bm25_score":
+                source.get(
+                    "bm25_score",
+                    0
+                )
+
+        }
+
+
+    return answer, sources
