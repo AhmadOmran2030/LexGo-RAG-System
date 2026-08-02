@@ -6,7 +6,11 @@ from chromadb.config import Settings
 
 vectors = import_module("04_vector_representation")
 
-# Safe path resolution for both scripts and notebooks
+# ==============================================================================
+# Configuration
+# ==============================================================================
+MODEL_NAME = "all-MiniLM-L6-v2"
+
 try:
     BASE_DIR = Path(__file__).resolve().parent
 except NameError:
@@ -17,26 +21,51 @@ COLLECTION_NAME = "legal_docs"
 
 
 def create_vector_store():
+
+    if len(vectors.chunks) != len(vectors.chunk_embeddings):
+        raise ValueError(
+            "Number of chunks and embeddings must match."
+        )
+
     client = chromadb.PersistentClient(
         path=str(DB_PATH),
         settings=Settings(anonymized_telemetry=False),
     )
+
     collection = client.get_or_create_collection(COLLECTION_NAME)
 
-    collection.upsert(
-        ids=[chunk["chunk_id"] for chunk in vectors.chunks],
-        documents=[chunk["chunk_text"] for chunk in vectors.chunks],
-        metadatas=[
-            {
-                "document_id": chunk["document_id"],
-                "title": chunk["title"],
-                "is_current": str(chunk["is_current"]),
-                "search_text": chunk.get("search_text", ""),
-            }
-            for chunk in vectors.chunks
-        ],
-        embeddings=vectors.chunk_embeddings.tolist(),
-    )
+    try:
+
+        collection.upsert(
+
+            ids=[
+                chunk["chunk_id"]
+                for chunk in vectors.chunks
+            ],
+
+            documents=[
+                chunk["chunk_text"]
+                for chunk in vectors.chunks
+            ],
+
+            metadatas=[
+                {
+                    "document_id": chunk["document_id"],
+                    "title": chunk["title"],
+                    "is_current": str(chunk["is_current"]),
+                    "chunk_number": index,
+                    "embedding_model": MODEL_NAME,
+                }
+                for index, chunk in enumerate(vectors.chunks)
+            ],
+
+            embeddings=vectors.chunk_embeddings.tolist(),
+        )
+
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to create vector store: {e}"
+        )
 
     return collection
 
