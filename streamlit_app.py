@@ -4,7 +4,12 @@ import re
 import sys
 import shutil
 from importlib import import_module
+
 import streamlit as st
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+
 import chromadb
 from chromadb.config import Settings
 
@@ -258,62 +263,352 @@ with st.sidebar:
 # ==============================================================================
 # 5. MAIN CHAT & RESPONSE AREA
 # ==============================================================================
+
 st.markdown('<h1 class="lexgo-title">LexGO ⚖️</h1>', unsafe_allow_html=True)
 st.markdown('<div class="lexgo-slogan">Navigate Law with Precision</div>', unsafe_allow_html=True)
 
+
 # Display Chat History
 for msg in st.session_state.messages:
+
     with st.chat_message(msg["role"]):
+
         st.markdown(msg["content"])
+
         if "metrics" in msg:
+
             m = msg["metrics"]
-            st.caption(f"📊 **Retrieval Hit:** {m['hit']}% | **Groundedness:** {m['faith']}% | **Sources:** {m['sources_count']}")
+
+            st.caption(
+                f"📊 **Retrieval Hit:** {m['hit']}% | "
+                f"**Groundedness:** {m['faith']}% | "
+                f"**Sources:** {m['sources_count']}"
+            )
+
 
 # Chat Input
 if prompt := st.chat_input("Ask a legal or policy question..."):
+
+
     # Add User Message
-    st.session_state.messages.append({"role": "user", "content": prompt})
+
+    st.session_state.messages.append(
+        {
+            "role": "user",
+            "content": prompt
+        }
+    )
+
+
     with st.chat_message("user"):
+
         st.markdown(prompt)
 
+
+
     # Generate Response
+
     with st.chat_message("assistant"):
-        with st.spinner("Analyzing repository & verifying compliance..."):
+
+        with st.spinner(
+            "Analyzing repository & verifying compliance..."
+        ):
+
+
             try:
+
                 answer, sources = rag.answer_question(prompt)
+
+
             except Exception as e:
+
                 answer = f"⚠️ **Error:** {str(e)}"
+
                 sources = []
-            
+
+
+
+            # ----------------------------------------------------------
             # Display Answer
+            # ----------------------------------------------------------
+
             st.markdown(answer)
-            
-            # Calculate Evaluation
+
+
+
+            # ----------------------------------------------------------
+            # Evaluation Metrics
+            # ----------------------------------------------------------
+
             hit_score = calculate_retrieval_hit(sources)
-            faith_score = calculate_context_faithfulness(answer, sources)
-            
+
+            faith_score = calculate_context_faithfulness(
+                answer,
+                sources
+            )
+
+
+
+            # ----------------------------------------------------------
             # Confidence Badge
+            # ----------------------------------------------------------
+
             if faith_score >= 60:
-                st.markdown('<span class="confidence-badge-high">🟢 High Confidence Match</span>', unsafe_allow_html=True)
+
+                st.markdown(
+                    '<span class="confidence-badge-high">'
+                    '🟢 High Confidence Match'
+                    '</span>',
+                    unsafe_allow_html=True
+                )
+
+
             elif sources:
-                st.markdown('<span class="confidence-badge-medium">🟡 Moderate Confidence - Review Recommended</span>', unsafe_allow_html=True)
-            
-            # Expander for Sources
+
+                st.markdown(
+                    '<span class="confidence-badge-medium">'
+                    '🟡 Moderate Confidence - Review Recommended'
+                    '</span>',
+                    unsafe_allow_html=True
+                )
+
+
+
+            # ----------------------------------------------------------
+            # Retrieval Analytics Dashboard
+            # ----------------------------------------------------------
+
             if sources:
-                with st.expander("📌 Retrieved Sources & Context"):
-                    for idx, s in enumerate(sources, 1):
-                        st.markdown(f"**[{idx}] {s.get('title', 'Document')}**")
-                        st.caption(s.get('chunk_text', ''))
+
+
+                similarity_rows = []
+
+
+                for idx, source in enumerate(sources, 1):
+
+                    score = source.get(
+                        "score",
+                        0
+                    )
+
+
+                    similarity_rows.append(
+                        {
+                            "Source": f"Source {idx}",
+                            "Document": source.get(
+                                "title",
+                                "Unknown"
+                            ),
+                            "Similarity Score (%)":
+                                round(
+                                    score * 100,
+                                    2
+                                )
+                        }
+                    )
+
+
+
+                df_similarity = pd.DataFrame(
+                    similarity_rows
+                )
+
+
+
+                avg_similarity = (
+                    df_similarity[
+                        "Similarity Score (%)"
+                    ]
+                    .mean()
+                )
+
+
+                best_similarity = (
+                    df_similarity[
+                        "Similarity Score (%)"
+                    ]
+                    .max()
+                )
+
+
+
+                st.markdown("---")
+
+                st.subheader(
+                    "📊 Retrieval Performance Analytics"
+                )
+
+
+
+                col1, col2, col3, col4 = st.columns(4)
+
+
+
+                col1.metric(
+                    "📚 Retrieved Sources",
+                    len(sources)
+                )
+
+
+                col2.metric(
+                    "🎯 Average Similarity",
+                    f"{avg_similarity:.2f}%"
+                )
+
+
+                col3.metric(
+                    "🏆 Best Match",
+                    f"{best_similarity:.2f}%"
+                )
+
+
+                col4.metric(
+                    "📄 Documents Used",
+                    len(
+                        set(
+                            [
+                                s.get(
+                                    "title"
+                                )
+                                for s in sources
+                            ]
+                        )
+                    )
+                )
+
+
+
+                # ------------------------------------------------------
+                # Similarity Chart
+                # ------------------------------------------------------
+
+                st.markdown(
+                    "### 🔍 Source Similarity Ranking"
+                )
+
+
+                fig = px.bar(
+                    df_similarity,
+                    x="Source",
+                    y="Similarity Score (%)",
+                    text="Similarity Score (%)",
+                    hover_data=[
+                        "Document"
+                    ],
+                    labels={
+                        "Similarity Score (%)":
+                        "Similarity (%)"
+                    }
+                )
+
+
+
+                fig.update_traces(
+                    texttemplate="%{text:.1f}%",
+                    textposition="outside"
+                )
+
+
+
+                fig.update_layout(
+                    height=400,
+                    yaxis_range=[
+                        0,
+                        100
+                    ],
+                    showlegend=False
+                )
+
+
+
+                st.plotly_chart(
+                    fig,
+                    use_container_width=True
+                )
+
+
+
+                # ------------------------------------------------------
+                # Detailed Table
+                # ------------------------------------------------------
+
+                with st.expander(
+                    "📋 Detailed Retrieval Analysis"
+                ):
+
+
+                    st.dataframe(
+                        df_similarity,
+                        use_container_width=True,
+                        hide_index=True
+                    )
+
+
+
+                # ------------------------------------------------------
+                # Retrieved Sources
+                # ------------------------------------------------------
+
+                with st.expander(
+                    "📌 Retrieved Sources & Context"
+                ):
+
+
+                    for idx, source in enumerate(
+                        sources,
+                        1
+                    ):
+
+
+                        similarity = round(
+                            source.get(
+                                "score",
+                                0
+                            ) * 100,
+                            2
+                        )
+
+
+                        st.markdown(
+                            f"**[{idx}] {source.get('title','Document')}**"
+                        )
+
+
+                        st.caption(
+                            f"🎯 Similarity: {similarity}%"
+                        )
+
+
+                        st.caption(
+                            source.get(
+                                "chunk_text",
+                                ""
+                            )
+                        )
+
+
                         if idx < len(sources):
+
                             st.divider()
 
-            # Save Assistant Response to History
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": answer,
-                "metrics": {
-                    "hit": hit_score,
-                    "faith": faith_score,
-                    "sources_count": len(sources) if sources else 0
+
+
+            # ----------------------------------------------------------
+            # Save Assistant Response
+            # ----------------------------------------------------------
+
+            st.session_state.messages.append(
+                {
+                    "role": "assistant",
+                    "content": answer,
+                    "metrics":
+                    {
+                        "hit": hit_score,
+                        "faith": faith_score,
+                        "sources_count":
+                            len(sources)
+                            if sources
+                            else 0
+                    }
                 }
-            })
+            )
