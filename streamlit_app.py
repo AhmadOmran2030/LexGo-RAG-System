@@ -264,33 +264,51 @@ with st.sidebar:
 # 5. MAIN CHAT & RESPONSE AREA
 # ==============================================================================
 
-st.markdown('<h1 class="lexgo-title">LexGO ⚖️</h1>', unsafe_allow_html=True)
-st.markdown('<div class="lexgo-slogan">Navigate Law with Precision</div>', unsafe_allow_html=True)
+st.markdown(
+    '<h1 class="lexgo-title">LexGO ⚖️</h1>',
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    '<div class="lexgo-slogan">Navigate Law with Precision</div>',
+    unsafe_allow_html=True
+)
 
 
-# Display Chat History
+# ==============================================================================
+# CHAT HISTORY
+# ==============================================================================
+
 for msg in st.session_state.messages:
 
     with st.chat_message(msg["role"]):
 
-        st.markdown(msg["content"])
+        st.markdown(
+            msg["content"]
+        )
+
 
         if "metrics" in msg:
 
             m = msg["metrics"]
 
+
             st.caption(
-                f"📊 **Retrieval Hit:** {m['hit']}% | "
-                f"**Groundedness:** {m['faith']}% | "
-                f"**Sources:** {m['sources_count']}"
+                f"📊 Retrieval Hit: {m['hit']}% | "
+                f"Groundedness: {m['faith']}% | "
+                f"Sources: {m['sources_count']}"
             )
 
 
-# Chat Input
-if prompt := st.chat_input("Ask a legal or policy question..."):
 
+# ==============================================================================
+# USER QUERY
+# ==============================================================================
 
-    # Add User Message
+if prompt := st.chat_input(
+    "Ask a legal or policy question..."
+):
+
 
     st.session_state.messages.append(
         {
@@ -306,9 +324,12 @@ if prompt := st.chat_input("Ask a legal or policy question..."):
 
 
 
-    # Generate Response
+    # ==========================================================================
+    # RAG RESPONSE
+    # ==========================================================================
 
     with st.chat_message("assistant"):
+
 
         with st.spinner(
             "Analyzing repository & verifying compliance..."
@@ -317,30 +338,37 @@ if prompt := st.chat_input("Ask a legal or policy question..."):
 
             try:
 
-                answer, sources = rag.answer_question(prompt)
+                answer, sources = rag.answer_question(
+                    prompt
+                )
 
 
             except Exception as e:
 
-                answer = f"⚠️ **Error:** {str(e)}"
+                answer = (
+                    f"⚠️ **Error:** {str(e)}"
+                )
 
                 sources = []
 
 
 
-            # ----------------------------------------------------------
-            # Display Answer
-            # ----------------------------------------------------------
+            # --------------------------------------------------------------
+            # Answer
+            # --------------------------------------------------------------
 
             st.markdown(answer)
 
 
 
-            # ----------------------------------------------------------
-            # Evaluation Metrics
-            # ----------------------------------------------------------
+            # --------------------------------------------------------------
+            # Evaluation
+            # --------------------------------------------------------------
 
-            hit_score = calculate_retrieval_hit(sources)
+            hit_score = calculate_retrieval_hit(
+                sources
+            )
+
 
             faith_score = calculate_context_faithfulness(
                 answer,
@@ -349,11 +377,12 @@ if prompt := st.chat_input("Ask a legal or policy question..."):
 
 
 
-            # ----------------------------------------------------------
-            # Confidence Badge
-            # ----------------------------------------------------------
+            # --------------------------------------------------------------
+            # Confidence
+            # --------------------------------------------------------------
 
             if faith_score >= 60:
+
 
                 st.markdown(
                     '<span class="confidence-badge-high">'
@@ -365,6 +394,7 @@ if prompt := st.chat_input("Ask a legal or policy question..."):
 
             elif sources:
 
+
                 st.markdown(
                     '<span class="confidence-badge-medium">'
                     '🟡 Moderate Confidence - Review Recommended'
@@ -374,9 +404,9 @@ if prompt := st.chat_input("Ask a legal or policy question..."):
 
 
 
-            # ----------------------------------------------------------
-            # Retrieval Analytics Dashboard
-            # ----------------------------------------------------------
+            # ==============================================================
+            # RETRIEVAL ANALYTICS DASHBOARD
+            # ==============================================================
 
             if sources:
 
@@ -384,26 +414,46 @@ if prompt := st.chat_input("Ask a legal or policy question..."):
                 similarity_rows = []
 
 
-                for idx, source in enumerate(sources, 1):
-
-                    score = source.get(
-                        "score",
-                        0
-                    )
+                for idx, source in enumerate(
+                    sources,
+                    1
+                ):
 
 
                     similarity_rows.append(
                         {
-                            "Source": f"Source {idx}",
-                            "Document": source.get(
-                                "title",
-                                "Unknown"
-                            ),
-                            "Similarity Score (%)":
-                                round(
-                                    score * 100,
-                                    2
+
+                            "Source":
+                                f"Source {idx}",
+
+
+                            "Document":
+                                source.get(
+                                    "title",
+                                    "Unknown"
+                                ),
+
+
+                            "Semantic Similarity (%)":
+                                source.get(
+                                    "similarity_score",
+                                    0
+                                ),
+
+
+                            "Hybrid Ranking (%)":
+                                source.get(
+                                    "hybrid_score",
+                                    0
+                                ),
+
+
+                            "BM25 Score":
+                                source.get(
+                                    "bm25_score",
+                                    0
                                 )
+
                         }
                     )
 
@@ -417,7 +467,7 @@ if prompt := st.chat_input("Ask a legal or policy question..."):
 
                 avg_similarity = (
                     df_similarity[
-                        "Similarity Score (%)"
+                        "Semantic Similarity (%)"
                     ]
                     .mean()
                 )
@@ -425,14 +475,15 @@ if prompt := st.chat_input("Ask a legal or policy question..."):
 
                 best_similarity = (
                     df_similarity[
-                        "Similarity Score (%)"
+                        "Semantic Similarity (%)"
                     ]
                     .max()
                 )
 
 
 
-                st.markdown("---")
+                st.divider()
+
 
                 st.subheader(
                     "📊 Retrieval Performance Analytics"
@@ -468,7 +519,8 @@ if prompt := st.chat_input("Ask a legal or policy question..."):
                         set(
                             [
                                 s.get(
-                                    "title"
+                                    "title",
+                                    "Unknown"
                                 )
                                 for s in sources
                             ]
@@ -478,9 +530,9 @@ if prompt := st.chat_input("Ask a legal or policy question..."):
 
 
 
-                # ------------------------------------------------------
+                # ==========================================================
                 # Similarity Chart
-                # ------------------------------------------------------
+                # ==========================================================
 
                 st.markdown(
                     "### 🔍 Source Similarity Ranking"
@@ -488,19 +540,22 @@ if prompt := st.chat_input("Ask a legal or policy question..."):
 
 
                 fig = px.bar(
-                    df_similarity,
-                    x="Source",
-                    y="Similarity Score (%)",
-                    text="Similarity Score (%)",
-                    hover_data=[
-                        "Document"
-                    ],
-                    labels={
-                        "Similarity Score (%)":
-                        "Similarity (%)"
-                    }
-                )
 
+                    df_similarity,
+
+                    x="Source",
+
+                    y="Semantic Similarity (%)",
+
+                    text="Semantic Similarity (%)",
+
+                    hover_data=[
+                        "Document",
+                        "Hybrid Ranking (%)",
+                        "BM25 Score"
+                    ]
+
+                )
 
 
                 fig.update_traces(
@@ -509,16 +564,18 @@ if prompt := st.chat_input("Ask a legal or policy question..."):
                 )
 
 
-
                 fig.update_layout(
-                    height=400,
+
+                    height=420,
+
                     yaxis_range=[
                         0,
                         100
                     ],
-                    showlegend=False
-                )
 
+                    showlegend=False
+
+                )
 
 
                 st.plotly_chart(
@@ -528,9 +585,9 @@ if prompt := st.chat_input("Ask a legal or policy question..."):
 
 
 
-                # ------------------------------------------------------
-                # Detailed Table
-                # ------------------------------------------------------
+                # ==========================================================
+                # Detailed Analytics Table
+                # ==========================================================
 
                 with st.expander(
                     "📋 Detailed Retrieval Analysis"
@@ -538,16 +595,20 @@ if prompt := st.chat_input("Ask a legal or policy question..."):
 
 
                     st.dataframe(
+
                         df_similarity,
+
                         use_container_width=True,
+
                         hide_index=True
+
                     )
 
 
 
-                # ------------------------------------------------------
-                # Retrieved Sources
-                # ------------------------------------------------------
+                # ==========================================================
+                # Sources
+                # ==========================================================
 
                 with st.expander(
                     "📌 Retrieved Sources & Context"
@@ -560,22 +621,27 @@ if prompt := st.chat_input("Ask a legal or policy question..."):
                     ):
 
 
-                        similarity = round(
-                            source.get(
-                                "score",
-                                0
-                            ) * 100,
-                            2
+                        similarity = source.get(
+                            "similarity_score",
+                            0
+                        )
+
+
+                        hybrid = source.get(
+                            "hybrid_score",
+                            0
                         )
 
 
                         st.markdown(
-                            f"**[{idx}] {source.get('title','Document')}**"
+                            f"**[{idx}] "
+                            f"{source.get('title','Document')}**"
                         )
 
 
                         st.caption(
-                            f"🎯 Similarity: {similarity}%"
+                            f"🎯 Semantic Similarity: {similarity}% | "
+                            f"⚡ Hybrid Score: {hybrid}%"
                         )
 
 
@@ -593,22 +659,37 @@ if prompt := st.chat_input("Ask a legal or policy question..."):
 
 
 
-            # ----------------------------------------------------------
-            # Save Assistant Response
-            # ----------------------------------------------------------
+            # ==============================================================
+            # SAVE SESSION
+            # ==============================================================
 
             st.session_state.messages.append(
+
                 {
-                    "role": "assistant",
-                    "content": answer,
+                    "role":
+                        "assistant",
+
+
+                    "content":
+                        answer,
+
+
                     "metrics":
-                    {
-                        "hit": hit_score,
-                        "faith": faith_score,
-                        "sources_count":
-                            len(sources)
-                            if sources
-                            else 0
-                    }
+                        {
+
+                            "hit":
+                                hit_score,
+
+
+                            "faith":
+                                faith_score,
+
+
+                            "sources_count":
+                                len(sources)
+
+                        }
+
                 }
+
             )
