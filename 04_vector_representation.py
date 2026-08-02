@@ -54,11 +54,14 @@ def min_max_normalize(scores: np.ndarray) -> np.ndarray:
 
 def hybrid_search(query: str, k: int = 4) -> list[dict]:
     """
-    Hybrid Retrieval using BM25 + Sentence Transformers.
+    Hybrid Retrieval using:
+    - BM25 sparse retrieval
+    - Sentence Transformer dense retrieval
 
     Returns:
-        Top-k relevant chunks whose hybrid score exceeds
-        SIMILARITY_THRESHOLD.
+    - hybrid_score
+    - semantic_similarity
+    - bm25_score
     """
 
     if not query.strip():
@@ -67,56 +70,115 @@ def hybrid_search(query: str, k: int = 4) -> list[dict]:
     if len(chunks) == 0:
         return []
 
-    # ------------------------------------------------------------------
-    # Sparse Retrieval (BM25)
-    # ------------------------------------------------------------------
+
+    # ==========================================================
+    # BM25 Retrieval
+    # ==========================================================
+
     clean_query = preprocessing.preprocess_text(query)
 
     bm25_scores = bm25.get_scores(
         clean_query.split()
     )
 
-    # ------------------------------------------------------------------
-    # Dense Retrieval (Embeddings)
-    # ------------------------------------------------------------------
+
+    # ==========================================================
+    # Dense Retrieval
+    # ==========================================================
+
     query_embedding = model.encode(
         [query],
         convert_to_numpy=True,
         normalize_embeddings=True,
     )
 
+
+    # Cosine similarity
     embedding_scores = np.dot(
         chunk_embeddings,
-        query_embedding.T,
+        query_embedding.T
     ).flatten()
 
-    # ------------------------------------------------------------------
-    # Hybrid Score
-    # ------------------------------------------------------------------
+
+
+    # ==========================================================
+    # Hybrid Ranking
+    # ==========================================================
+
     hybrid_scores = (
-        (1 - ALPHA) * min_max_normalize(bm25_scores)
-        + ALPHA * min_max_normalize(embedding_scores)
+        (1 - ALPHA)
+        *
+        min_max_normalize(bm25_scores)
+
+        +
+
+        ALPHA
+        *
+        min_max_normalize(embedding_scores)
     )
 
-    ranking = np.argsort(hybrid_scores)[::-1]
+
+    ranking = np.argsort(
+        hybrid_scores
+    )[::-1]
+
 
     results = []
 
+
     for index in ranking:
 
-        score = float(hybrid_scores[index])
+        hybrid_score = float(
+            hybrid_scores[index]
+        )
 
-        if score < SIMILARITY_THRESHOLD:
+
+        semantic_score = float(
+            embedding_scores[index]
+        )
+
+
+        bm25_score = float(
+            bm25_scores[index]
+        )
+
+
+        # ------------------------------------------------------
+        # Real semantic threshold
+        # ------------------------------------------------------
+        if semantic_score < SIMILARITY_THRESHOLD:
             continue
+
+
 
         results.append(
             {
                 **chunks[index],
-                "score": round(score, 4),
+
+                # For UI
+                "similarity_score":
+                    round(
+                        semantic_score * 100,
+                        2
+                    ),
+
+                "hybrid_score":
+                    round(
+                        hybrid_score * 100,
+                        2
+                    ),
+
+                "bm25_score":
+                    round(
+                        bm25_score,
+                        4
+                    )
             }
         )
 
+
         if len(results) >= k:
             break
+
 
     return results
