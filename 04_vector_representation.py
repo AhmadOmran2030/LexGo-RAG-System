@@ -1,8 +1,12 @@
 from importlib import import_module
+
 import numpy as np
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer
 
+# ==============================================================================
+# Imports
+# ==============================================================================
 preprocessing = import_module("02_preprocessing")
 chunks = import_module("03_chunking").build_chunks()
 
@@ -11,8 +15,6 @@ chunks = import_module("03_chunking").build_chunks()
 # ==============================================================================
 ALPHA = 0.6
 MODEL_NAME = "all-MiniLM-L6-v2"
-
-# Minimum acceptable hybrid similarity score
 SIMILARITY_THRESHOLD = 0.45
 
 # ==============================================================================
@@ -22,7 +24,7 @@ tokenized_chunks = [chunk["search_text"].split() for chunk in chunks]
 bm25 = BM25Okapi(tokenized_chunks)
 
 # ==============================================================================
-# Dense Embeddings
+# Embedding Model
 # ==============================================================================
 model = SentenceTransformer(MODEL_NAME)
 
@@ -33,8 +35,13 @@ chunk_embeddings = model.encode(
 )
 
 
-def min_max_normalize(scores):
-    scores = np.array(scores, dtype=float)
+def min_max_normalize(scores: np.ndarray) -> np.ndarray:
+    """Normalize scores to the range [0, 1]."""
+
+    scores = np.asarray(scores, dtype=float)
+
+    if len(scores) == 0:
+        return scores
 
     score_min = scores.min()
     score_max = scores.max()
@@ -45,17 +52,33 @@ def min_max_normalize(scores):
     return (scores - score_min) / (score_max - score_min)
 
 
-def hybrid_search(query: str, k: int = 4):
+def hybrid_search(query: str, k: int = 4) -> list[dict]:
+    """
+    Hybrid Retrieval using BM25 + Sentence Transformers.
 
-    # -----------------------------
-    # Sparse Search (BM25)
-    # -----------------------------
+    Returns:
+        Top-k relevant chunks whose hybrid score exceeds
+        SIMILARITY_THRESHOLD.
+    """
+
+    if not query.strip():
+        return []
+
+    if len(chunks) == 0:
+        return []
+
+    # ------------------------------------------------------------------
+    # Sparse Retrieval (BM25)
+    # ------------------------------------------------------------------
     clean_query = preprocessing.preprocess_text(query)
-    bm25_scores = bm25.get_scores(clean_query.split())
 
-    # -----------------------------
-    # Dense Search (Embeddings)
-    # -----------------------------
+    bm25_scores = bm25.get_scores(
+        clean_query.split()
+    )
+
+    # ------------------------------------------------------------------
+    # Dense Retrieval (Embeddings)
+    # ------------------------------------------------------------------
     query_embedding = model.encode(
         [query],
         convert_to_numpy=True,
@@ -64,19 +87,17 @@ def hybrid_search(query: str, k: int = 4):
 
     embedding_scores = np.dot(
         chunk_embeddings,
-        query_embedding.T
+        query_embedding.T,
     ).flatten()
 
-    # -----------------------------
+    # ------------------------------------------------------------------
     # Hybrid Score
-    # -----------------------------
+    # ------------------------------------------------------------------
     hybrid_scores = (
         (1 - ALPHA) * min_max_normalize(bm25_scores)
-        +
-        ALPHA * min_max_normalize(embedding_scores)
+        + ALPHA * min_max_normalize(embedding_scores)
     )
 
-    # Sort from highest score
     ranking = np.argsort(hybrid_scores)[::-1]
 
     results = []
@@ -85,16 +106,17 @@ def hybrid_search(query: str, k: int = 4):
 
         score = float(hybrid_scores[index])
 
-        # Ignore weak matches
         if score < SIMILARITY_THRESHOLD:
             continue
 
-        results.append({
-            **chunks[index],
-            "score": score
-        })
+        results.append(
+            {
+                **chunks[index],
+                "score": round(score, 4),
+            }
+        )
 
-        if len(results) == k:
+        if len(results) >= k:
             break
 
     return results
