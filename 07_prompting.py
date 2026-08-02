@@ -125,16 +125,62 @@ def answer_question(
     if not question.strip():
         return "Please enter a valid question.", []
 
+
+    # Retrieve context + sources
     context, sources = build_context(question)
 
+
+    # No relevant documents found
     if not sources:
         return (
             "I could not find relevant information in the provided policy documents.",
             [],
         )
 
-    prompt = build_prompt(question, context)
 
+    # ---------------------------------------------------------
+    # Add retrieval analytics metadata
+    # ---------------------------------------------------------
+
+    enriched_sources = []
+
+    for source in sources:
+
+        enriched_sources.append(
+            {
+                **source,
+
+                # Ensure values exist
+                "similarity_score":
+                    source.get(
+                        "similarity_score",
+                        0
+                    ),
+
+                "hybrid_score":
+                    source.get(
+                        "hybrid_score",
+                        0
+                    ),
+
+                "bm25_score":
+                    source.get(
+                        "bm25_score",
+                        0
+                    ),
+            }
+        )
+
+
+    # Build final prompt
+    prompt = build_prompt(
+        question,
+        context
+    )
+
+
+    # Generate answer
     answer = ask_openrouter(prompt)
 
-    return answer, sources
+
+    return answer, enriched_sources
