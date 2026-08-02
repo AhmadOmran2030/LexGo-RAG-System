@@ -5,22 +5,49 @@ from typing import Tuple, List, Dict, Any
 from dotenv import load_dotenv
 from openai import OpenAI
 
+# ==============================================================================
+# Imports
+# ==============================================================================
 build_context = import_module("06_retrieve_context").build_context
 
+# ==============================================================================
+# Configuration
+# ==============================================================================
 load_dotenv()
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
+
+OPENROUTER_MODEL = os.getenv(
+    "OPENROUTER_MODEL",
+    "meta-llama/llama-3.3-70b-instruct:free",
+)
+
+SYSTEM_PROMPT = """
+You are a professional corporate policy assistant.
+
+Rules:
+
+- Answer ONLY using the provided context.
+- Never use outside knowledge.
+- If the answer cannot be found in the context, reply exactly:
+
+"I could not find relevant information in the provided policy documents."
+
+- Prefer CURRENT policies over OUTDATED policies.
+- Mention when a source is outdated.
+- Cite sources using [Source X].
+- Do not make assumptions.
+- Keep answers concise, factual, and professional.
+"""
 
 
+# ==============================================================================
+# Prompt Builder
+# ==============================================================================
 def build_prompt(question: str, context: str) -> str:
-    return f"""You are a careful, grounded legal policy assistant.
-Use only the provided context. Do not use outside knowledge.
-If the context is not enough, say you do not know rather than guessing.
-Prefer CURRENT sources over OUTDATED sources, and note when a source is outdated.
-Cite sources like [Source 1].
-This is general information about internal policy, not legal advice.
+    """Build the user prompt."""
 
+    return f"""
 Question:
 {question}
 
@@ -29,13 +56,18 @@ Context:
 """
 
 
+# ==============================================================================
+# OpenRouter API
+# ==============================================================================
 def ask_openrouter(prompt: str) -> str:
+
     if not OPENROUTER_API_KEY:
         return "Error: Missing OPENROUTER_API_KEY environment variable."
 
     client = OpenAI(
         base_url="https://openrouter.ai/api/v1",
         api_key=OPENROUTER_API_KEY,
+        timeout=60,
         default_headers={
             "HTTP-Referer": "https://localhost",
             "X-Title": "Legal Policy RAG Assistant",
@@ -43,27 +75,66 @@ def ask_openrouter(prompt: str) -> str:
     )
 
     try:
+
         response = client.chat.completions.create(
+
             model=OPENROUTER_MODEL,
-            messages=[{"role": "user", "content": prompt}],
+
+            messages=[
+                {
+                    "role": "system",
+                    "content": SYSTEM_PROMPT,
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ],
+
             temperature=0,
+            max_tokens=700,
         )
-        if response and response.choices and len(response.choices) > 0:
-            return response.choices[0].message.content or "Model returned an empty response."
-        return "OpenRouter API returned an empty choice set."
+
+        if (
+            response
+            and response.choices
+            and len(response.choices) > 0
+        ):
+            return (
+                response.choices[0].message.content
+                or "Model returned an empty response."
+            )
+
+        return "OpenRouter returned an empty response."
+
     except Exception as error:
+
         status_code = getattr(error, "status_code", "unknown")
         message = getattr(error, "message", str(error))
-        return f"OpenRouter error ({status_code}): {message}"
+
+        return f"OpenRouter Error ({status_code}): {message}"
 
 
-def answer_question(question: str) -> Tuple[str, List[Dict[str, Any]]]:
+# ==============================================================================
+# Main RAG Function
+# ==============================================================================
+def answer_question(
+    question: str,
+) -> Tuple[str, List[Dict[str, Any]]]:
+
+    if not question.strip():
+        return "Please enter a valid question.", []
+
     context, sources = build_context(question)
 
-    if not context:
-        return "I could not find any relevant policy documents to answer your question.", []
+    if not sources:
+        return (
+            "I could not find relevant information in the provided policy documents.",
+            [],
+        )
 
     prompt = build_prompt(question, context)
+
     answer = ask_openrouter(prompt)
-    
+
     return answer, sources
